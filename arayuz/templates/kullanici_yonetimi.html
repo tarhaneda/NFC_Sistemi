@@ -260,11 +260,51 @@
             
             <div class="users-table-container">
                 
-                <div class="user-filters">
-                    <a href="{{ url_for('kullanici_yonetimi', filtre='tumu') }}" class="btn-user-filter {% if aktif_filtre == 'tumu' %}active{% endif %}">Tümü</a>
-                    <a href="{{ url_for('kullanici_yonetimi', filtre='aktif') }}" class="btn-user-filter {% if aktif_filtre == 'aktif' %}active{% endif %}">Sadece Aktifler</a>
-                    <a href="{{ url_for('kullanici_yonetimi', filtre='pasif') }}" class="btn-user-filter {% if aktif_filtre == 'pasif' %}active{% endif %}">Sadece Pasifler (Dondurulmuş)</a>
-                </div>
+                               <style>
+                    .filter-panel { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+                    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+                    .filter-group label { color: #0f0; font-size: 0.9em; }
+                    .filter-group input, .filter-group select { padding: 8px; background: #111; border: 1px solid #0f0; color: white; border-radius: 4px; color-scheme: dark; }
+                    .btn-filter { background: #0f0; color: #000; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+                </style>
+
+                <!-- YENİ GELİŞMİŞ FİLTRELEME PANELİ -->
+                <form method="GET" action="{{ url_for('kullanici_yonetimi') }}" class="filter-panel">
+                    <div class="filter-group">
+                        <label>Durum:</label>
+                        <select name="filtre">
+                            <option value="tumu" {% if aktif_filtre == 'tumu' %}selected{% endif %}>Tümü</option>
+                            <option value="aktif" {% if aktif_filtre == 'aktif' %}selected{% endif %}>Aktifler</option>
+                            <option value="pasif" {% if aktif_filtre == 'pasif' %}selected{% endif %}>Pasifler</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Ad Soyad:</label>
+                        <input type="text" name="arama_ad" value="{{ arama_ad }}" placeholder="İsimde ara...">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>NFC UID:</label>
+                        <input type="text" name="arama_nfc" value="{{ arama_nfc }}" placeholder="Şifrede ara...">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Başlangıç Tarihi:</label>
+                        <input type="date" name="baslangic" value="{{ baslangic }}">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Bitiş Tarihi:</label>
+                        <input type="date" name="bitis" value="{{ bitis }}">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; padding-bottom: 2px;">
+                        <button type="submit" class="btn-filter">🔍 Filtrele</button>
+                        <a href="{{ url_for('kullanici_yonetimi') }}" style="color: #aaa; text-decoration: none; align-self: center; padding-left:5px;">Sıfırla</a>
+                    </div>
+                </form>
+
 
                 <table class="users-table">
                     <thead>
@@ -392,6 +432,41 @@
                 console.error(error);
                 alert("Bağlantı hatası!");
                 window.location.reload();
+            });
+        }
+
+        const filtreFormu=document.querySelector('.filter-panel');
+        if(filtreFormu){
+            const formElemanlari=filtreFormu.querySelectorAll('input,select');
+
+            const filtreButonu=filtreFormu.querySelector(".btn-filter");
+            if(filtreButonu) filtreButonu.style.display='none';
+
+            let zamanlayici;
+            const anlikFiltrele=function(){
+                clearTimeout(zamanlayici);
+                zamanlayici=setTimeout(()=>{
+                    const formData=new FormData(filtreFormu);
+                    const params=new URLSearchParams(formData);
+                    const url=filtreFormu.action + "?" + params.toString();
+
+                    fetch(url).then(response=>response.text())
+                    .then(html=>{
+                        const parser=new DOMParser();
+                        const doc=parser.parseFromString(html,'text/html');
+                        const yeniTabloGovdesi=doc.querySelector('.users-table tbody').innerHTML;
+                        document.querySelector('.users-table tbody').innerHTML=yeniTabloGovdesi;
+                    });
+                }, 200);
+            };
+
+            formElemanlari.forEach(eleman=>{
+                eleman.addEventListener('input',anlikFiltrele);
+                eleman.addEventListener('change',anlikFiltrele);
+            });
+
+            filtreFormu.addEventListener('submit',function(e){
+                e.preventDefault();
             });
         }
     </script>

@@ -107,22 +107,60 @@ def kullanici_yonetimi():
         else:
             mesaj = "Lütfen tüm alanları doldurun ve fotoğrafınızı çekin!"
 
-    # ---- KULLANICI TABLOSU VE FİLTRELEME ----
-    durum_filtre = request.args.get('filtre', 'tumu')
-    baglanti = db.veritabani_baglantisi_al()
-    imlec = baglanti.cursor()
+    durum_filtre=request.args.get('filtre','tumu')
+    arama_ad=request.args.get('arama_ad', '')
+    arama_nfc=request.args.get('arama_nfc','')
+    baslangic=request.args.get('baslangic','')
+    bitis=request.args.get('bitis', '')
     
-    if durum_filtre == 'aktif':
-        imlec.execute("SELECT * FROM kullanicilar WHERE aktif_mi = 1 ORDER BY id DESC")
-    elif durum_filtre == 'pasif':
-        imlec.execute("SELECT * FROM kullanicilar WHERE aktif_mi = 0 ORDER BY id DESC")
-    else:
-        imlec.execute("SELECT * FROM kullanicilar ORDER BY id DESC")
-        
+    baglanti=db.veritabani_baglantisi_al()
+    imlec=baglanti.cursor()
+
+    sorgu_kriterleri=[]
+    parametreler=[]
+
+    if durum_filtre=='aktif':
+        sorgu_kriterleri.append("aktif_mi=1")
+    elif durum_filtre=='pasif':
+        sorgu_kriterleri.append("aktif_mi=0")
+
+    if arama_ad != '':
+        sorgu_kriterleri.append("ad_soyad LIKE ?")
+        parametreler.append(f"%{arama_ad}%")
+    
+    if arama_nfc != '':
+        sorgu_kriterleri.append("nfc_uid LIKE ?")
+        parametreler.append(f"%{arama_nfc}%")
+
+    if baslangic != '':
+        sorgu_kriterleri.append("date(kayit_tarihi) >= ?")
+        parametreler.append(baslangic)
+
+    if bitis != '':
+        sorgu_kriterleri.append("date(kayit_tarihi) <= ?")
+        parametreler.append(bitis)
+
+    where_cumlesi = ""
+    if len(sorgu_kriterleri) > 0:
+        where_cumlesi = "WHERE " + " AND ".join(sorgu_kriterleri)
+
+    imlec.execute(f"SELECT * FROM kullanicilar {where_cumlesi} ORDER BY id DESC", parametreler)
     kullanicilar = imlec.fetchall()
     baglanti.close()
-            
-    return render_template('kullanici_yonetimi.html', mesaj=mesaj, kullanicilar=kullanicilar, aktif_filtre=durum_filtre)
+
+    return render_template('kullanici_yonetimi.html', 
+                           mesaj=mesaj, 
+                           kullanicilar=kullanicilar, 
+                           aktif_filtre=durum_filtre,
+                           arama_ad=arama_ad,
+                           arama_nfc=arama_nfc,
+                           baslangic=baslangic,
+                           bitis=bitis)
+    
+        
+
+    
+    
 
 
 # ------- YENİ: YETKİ AÇ/KAPA API'Sİ -------
@@ -238,7 +276,10 @@ def nfc_okutuldu():
         db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ")
         return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}! Kapı açıldı.", "foto": resim_b64})
     else:
-        db.log_kaydet(f"{kullanici['ad_soyad']} adına başarısız deneme!", "İHLAL_GİRİŞİMİ")
+        os.makedirs("log_resimleri", exist_ok=True)
+        ihlal_foto_yolu=f"log_resimleri/ihlal_{nfc_uid}.jpg"
+        cv2.imwrite(ihlal_foto_yolu, islenmis_kare)
+        db.log_kaydet(f"{kullanici['ad_soyad']} adına başarısız deneme!", "İHLAL_GİRİŞİMİ",ihlal_foto_yolu)
         return jsonify({"durum": "HATA", "mesaj": f"Güvenlik İhlali: {mesaj}", "foto": resim_b64})
 
 

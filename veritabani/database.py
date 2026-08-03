@@ -49,9 +49,10 @@ def kullanici_ekle(ad_soyad, nfc_uid, yuz_fotograf_yolu=""):
         baglanti=veritabani_baglantisi_al()
         imlec=baglanti.cursor()
         imlec.execute('''
-        INSERT INTO kullanicilar (ad_soyad, nfc_uid, yuz_fotograf_yolu)
-        VALUES(?,?,?)
+        INSERT INTO kullanicilar (ad_soyad, nfc_uid, yuz_fotograf_yolu, kayit_tarihi)
+        VALUES(?,?,?, datetime('now', 'localtime'))
         ''',(ad_soyad, nfc_uid, yuz_fotograf_yolu))
+
         baglanti.commit()
         print(f"Başarılı: '{ad_soyad}' sisteme eklendi.")
 
@@ -82,6 +83,8 @@ def formatli_mesaj_olustur(olay_detayi, durum):
         mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Kapı Açıldı / Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
     elif durum == "YETKİSİZ_GİRİŞ_DENEMESİ":
         mesaj = f"👤 Kişi: {olay_detayi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ (Yetkisi Dondurulmuş Kart!)"
+    elif durum == "SİSTEM_AYARI":  
+        mesaj = f"⚙️ SİSTEM BİLGİSİ\n⏰ Zaman: {zaman}\n🔄 İşlem: Yetki Güncellemesi\nℹ️ Detay: {olay_detayi}"    
     else: # İHLAL_GİRİŞİMİ veya YABANCI_KART
         mesaj = f"👤 Kişi: Bilinmeyen Kullanıcı\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ ({olay_detayi})"
         
@@ -92,8 +95,8 @@ def log_kaydet(olay_detayi, durum, kamera_fotograf_yolu=""):
     baglanti=veritabani_baglantisi_al()
     imlec=baglanti.cursor()
     imlec.execute('''
-    INSERT INTO kayitlar(olay_detayi, durum, kamera_fotograf_yolu)
-    VALUES(?,?,?)
+    INSERT INTO kayitlar(olay_detayi, durum, kamera_fotograf_yolu,olay_tarihi)
+    VALUES(?,?,?,datetime('now','localtime'))
     ''',(olay_detayi, durum, kamera_fotograf_yolu))
     baglanti.commit()
     baglanti.close()
