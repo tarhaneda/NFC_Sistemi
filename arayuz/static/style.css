@@ -1,0 +1,222 @@
+/* Genel Ayarlar */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Siber-Mavi Arka Plan (Login Ekranı için) */
+body.login-body {
+    background-color: #0d1117;
+    background: radial-gradient(circle at center, #1f2937 0%, #0d1117 100%);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Glassmorphism (Buzlu Cam Efekti) Tasarımı */
+.glass-effect {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    border-radius: 20px;
+}
+
+/* Giriş Kutusu ve Başlıklar */
+.login-container {
+    padding: 40px;
+    width: 400px;
+    text-align: center;
+    color: #ffffff;
+}
+
+.login-header h2 {
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.login-header p {
+    color: #8b949e;
+    font-size: 0.9rem;
+    margin-bottom: 30px;
+}
+
+.lock-icon {
+    font-size: 50px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 15px rgba(88, 166, 255, 0.5);
+}
+
+/* Şifre Yazma Alanı (Input) */
+.input-group input {
+    width: 100%;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.2);
+    color: white;
+    font-size: 16px;
+    outline: none;
+    transition: all 0.3s ease;
+    text-align: center;
+    letter-spacing: 5px;
+}
+
+.input-group input:focus {
+    border-color: #58a6ff;
+    box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+}
+
+/* Fütüristik Animasyonlu Buton */
+.glow-on-hover {
+    width: 100%;
+    padding: 15px;
+    margin-top: 25px;
+    border: none;
+    outline: none;
+    color: #fff;
+    background: #238636;
+    cursor: pointer;
+    border-radius: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    font-size: 16px;
+    transition: 0.3s;
+}
+
+.glow-on-hover:hover {
+    background: #2ea043;
+    box-shadow: 0 0 20px rgba(46, 160, 67, 0.6);
+}
+
+/* Hata Mesajı (Kırmızı Kutu) */
+.error-msg {
+    background-color: rgba(248, 81, 73, 0.1);
+    color: #ff7b72;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(248, 81, 73, 0.4);
+    font-size: 0.9rem;
+}
+/* --- ANA PANEL (DASHBOARD) TASARIMLARI --- */
+
+body.dashboard-body {
+    background-color: #0d1117;
+    background: radial-gradient(circle at top left, #1f2937 0%, #0d1117 100%);
+    min-height: 100vh;
+    color: white;
+}
+
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    margin: 20px;
+}
+
+.nav-logo {
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.nav-links a {
+    color: #8b949e;
+    text-decoration: none;
+    margin-left: 20px;
+    font-size: 16px;
+    transition: 0.3s;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    color: #58a6ff;
+    text-shadow: 0 0 10px rgba(88,166,255,0.5);
+}
+
+.main-content {
+    display: flex;
+    padding: 0 20px;
+    gap: 20px;
+}
+
+.camera-section {
+    flex: 2; /* Kamera alanı daha geniş */
+    padding: 20px;
+}
+
+.control-section {
+    flex: 1; /* Butonlar alanı dar */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+}
+
+.video-container {
+    position: relative;
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid #30363d;
+    background: #000;
+}
+
+.live-video {
+    width: 100%;
+    display: block;
+}
+
+/* Fütüristik Yukarı-Aşağı İnen Tarama Çizgisi */
+.scan-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(88, 166, 255, 0.7);
+    box-shadow: 0 0 10px rgba(88, 166, 255, 1);
+    animation: scan 3s infinite linear;
+}
+
+@keyframes scan {
+    0% { top: 0; }
+    50% { top: 100%; }
+    100% { top: 0; }
+}
+
+.status-box {
+    margin-bottom: 40px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.status-indicator {
+    font-weight: bold;
+}
+.status-indicator.red { color: #f85149; text-shadow: 0 0 10px rgba(248,81,73,0.5); }
+.status-indicator.green { color: #3fb950; text-shadow: 0 0 10px rgba(63,185,80,0.5); }
+
+.btn-large {
+    height: 80px;
+    font-size: 22px;
+}

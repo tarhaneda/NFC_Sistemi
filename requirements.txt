@@ -1,6 +1,6 @@
-customtkinter
 python-telegram-bot
 opencv-python
 face-recognition
 Pillow
 python-dotenv
+Flask

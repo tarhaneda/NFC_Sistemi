@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Logları - Güvenlik Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .filter-panel {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-group label {
+            color: #0f0;
+            font-size: 0.9em;
+        }
+                .filter-group input, .filter-group select {
+            padding: 8px;
+            background: #111;
+            border: 1px solid #0f0;
+            color: white;
+            border-radius: 4px;
+            color-scheme: dark;
+            cursor: pointer;
+        }
+
+        .btn-filter {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 9px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-filter:hover {
+            background: #0c0;
+        }
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+        .logs-table th, .logs-table td {
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: left;
+        }
+        .logs-table th {
+            background: rgba(0, 255, 0, 0.1);
+            color: #0f0;
+        }
+        .logs-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .page-btn {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid #0f0;
+            color: #0f0;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        .page-btn:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px #0f0;
+        }
+        .page-btn.disabled {
+            border-color: #555;
+            color: #555;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <nav class="top-nav glass-effect">
+        <div class="nav-logo">🛡️ NFC & YÜZ TANIMA SİSTEMİ</div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Ana Panel</a>
+            <a href="{{ url_for('kullanici_yonetimi') }}">Kullanıcı Yönetimi</a>
+            <a href="{{ url_for('loglar') }}" class="active">Sistem Logları</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 15px;">Çıkış Yap 🚪</a>
+
+        </div>
+    </nav>
+
+    <div class="main-content" style="display: block;">
+        <div class="glass-effect" style="padding: 20px;">
+            <div class="section-title">Geçmiş Güvenlik Kayıtları</div>
+            
+            <!-- FİLTRE PANELİ -->
+            <form method="GET" action="{{ url_for('loglar') }}" class="filter-panel">
+                <div class="filter-group">
+                    <label>Durum Filtresi:</label>
+                    <select name="durum">
+                        <option value="tumu" {% if secili_durum == 'tumu' %}selected{% endif %}>Tüm Loglar</option>
+                        <option value="BAŞARILI_GİRİŞ" {% if secili_durum == 'BAŞARILI_GİRİŞ' %}selected{% endif %}>Başarılı Girişler</option>
+                        <option value="İHLAL_GİRİŞİMİ" {% if secili_durum == 'İHLAL_GİRİŞİMİ' %}selected{% endif %}>Yüz Eşleşmeyen İhlaller</option>
+                        <option value="YETKİSİZ_GİRİŞ_DENEMESİ" {% if secili_durum == 'YETKİSİZ_GİRİŞ_DENEMESİ' %}selected{% endif %}>Pasif Kart Denemeleri</option>
+                        <option value="YABANCI_KART" {% if secili_durum == 'YABANCI_KART' %}selected{% endif %}>Yabancı Kartlar</option>
+                        <option value="SİSTEM_AYARI" {% if secili_durum == 'SİSTEM_AYARI' %}selected{% endif %}>Sistem Ayarları</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Başlangıç Tarihi:</label>
+                    <input type="date" name="baslangic" value="{{ baslangic }}">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Bitiş Tarihi:</label>
+                    <input type="date" name="bitis" value="{{ bitis }}">
+                </div>
+                
+                <button type="submit" class="btn-filter">🔍 Filtrele</button>
+                <a href="{{ url_for('loglar') }}" style="color: #aaa; font-size: 0.9em; text-decoration: none; align-self: center; margin-left: 10px;">Temizle</a>
+            </form>
+
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Tarih / Saat</th>
+                        <th>Olay Detayı</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for kayit in kayitlar %}
+                    <tr>
+                        <td style="color: #aaa;">{{ kayit.olay_tarihi }}</td>
+                        <td>{{ kayit.olay_detayi }}</td>
+                        <td>
+                            {% if "BAŞARILI" in kayit.durum %}
+                                <span style="color: #0f0; font-weight: bold;">{{ kayit.durum }}</span>
+                            {% elif "SİSTEM_AYARI" in kayit.durum %}
+                                <span style="color: #0ff; font-weight: bold;">{{ kayit.durum }}</span>
+                            {% else %}
+                                <span style="color: #f00; font-weight: bold;">{{ kayit.durum }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: #ccc;">Bu kriterlere uygun kayıt bulunamadı.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="pagination">
+                {% if su_anki_sayfa > 1 %}
+                    <a href="{{ url_for('loglar', page=su_anki_sayfa-1, durum=secili_durum, baslangic=baslangic, bitis=bitis) }}" class="page-btn">⬅️ Önceki</a>
+                {% else %}
+                    <a href="#" class="page-btn disabled">⬅️ Önceki</a>
+                {% endif %}
+                
+                <span style="color: white; align-self: center;">Sayfa {{ su_anki_sayfa }} / {{ toplam_sayfa }}</span>
+
+                {% if su_anki_sayfa < toplam_sayfa %}
+                    <a href="{{ url_for('loglar', page=su_anki_sayfa+1, durum=secili_durum, baslangic=baslangic, bitis=bitis) }}" class="page-btn">Sonraki ➡️</a>
+                {% else %}
+                    <a href="#" class="page-btn disabled">Sonraki ➡️</a>
+                {% endif %}
+            </div>
+            
+        </div>
+    </div>
+
+</body>
+</html>

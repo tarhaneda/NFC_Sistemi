@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ana Panel - Güvenlik Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .dashboard-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            flex: 1;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0;
+            color: #0f0;
+            font-size: 2em;
+        }
+        .stat-card p {
+            margin: 5px 0 0;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <!-- Üst Menü -->
+    <nav class="top-nav glass-effect">
+        <div class="nav-logo">🛡️ NFC & YÜZ TANIMA SİSTEMİ</div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="active">Ana Panel</a>
+            <a href="{{ url_for('kullanici_yonetimi') }}">Kullanıcı Yönetimi</a>
+            <a href="{{ url_for('loglar') }}">Sistem Logları</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 15px;">Çıkış Yap 🚪</a>
+
+        </div>
+    </nav>
+
+    <div class="main-content" style="display: block;">
+        
+        <div class="dashboard-stats">
+            <div class="stat-card glass-effect">
+                <h3>ONLİNE</h3>
+                <p>Sistem Durumu</p>
+            </div>
+            <div class="stat-card glass-effect">
+                <h3>AŞAMA 4.7</h3>
+                <p>Yazılım Versiyonu</p>
+            </div>
+        </div>
+
+        <div class="glass-effect" style="padding: 20px; text-align: center;">
+            <div class="section-title">Kapı Kontrol Merkezi (NFC Simülatörü)</div>
+            
+            <p style="color: #aaa; margin-bottom: 20px;">
+                Fiziksel NFC modülü bağlanana kadar (Aşama 5), sisteme eklediğiniz bir personelin kart şifresini aşağıya yazarak kapıdan geçiş testleri yapabilirsiniz.
+            </p>
+            
+            <div style="max-width: 400px; margin: 0 auto; display: flex; gap: 10px;">
+                <input type="text" id="sanal_nfc_uid" placeholder="Örn: 9A8B7C6D" style="flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #0f0; background: #111; color: white;">
+                <button onclick="nfcOkut()" class="glow-on-hover" style="padding: 12px 20px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer; background: #0f0; color: #000;">Sanal Kartı Okut</button>
+            </div>
+
+            <!-- Sonuçların gösterileceği alan -->
+            <div id="islem_sonucu" style="margin-top: 25px; padding: 15px; border-radius: 8px; display: none; font-size: 1.1em;"></div>
+            
+            <!-- Şipşak fotoğrafın gösterileceği alan -->
+            <div id="foto_alani" style="margin-top: 15px; display: none;">
+                <p style="color: #0ff; font-weight: bold; margin-bottom: 5px;">Kamera Kaydı (Anlık):</p>
+                <img id="kamera_resmi" src="" style="max-width: 300px; border: 3px solid #0f0; border-radius: 10px; box-shadow: 0 0 15px #0f0;">
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        function nfcOkut() {
+            const uid = document.getElementById('sanal_nfc_uid').value;
+            if(!uid) {
+                alert("Lütfen bir UID girin!");
+                return;
+            }
+
+            const sonucDiv = document.getElementById('islem_sonucu');
+            const fotoAlani = document.getElementById('foto_alani');
+            const fotoImg = document.getElementById('kamera_resmi');
+            
+            sonucDiv.style.display = "block";
+            sonucDiv.innerHTML = "⏳ Kart işleniyor, kamera bekleniyor...";
+            sonucDiv.style.border = "1px solid #ffaa00";
+            sonucDiv.style.color = "#ffaa00";
+            fotoAlani.style.display = "none";
+
+            fetch('/api/nfc_okutuldu', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: uid})
+            })
+            .then(response => response.json())
+            .then(data => {
+                sonucDiv.innerHTML = data.mesaj;
+                if(data.durum === "BASARILI") {
+                    sonucDiv.style.border = "2px solid #0f0";
+                    sonucDiv.style.color = "#0f0";
+                } else {
+                    sonucDiv.style.border = "2px solid #f00";
+                    sonucDiv.style.color = "#f00";
+                }
+
+                if(data.foto) {
+                    fotoImg.src = "data:image/jpeg;base64," + data.foto;
+                    if(data.durum === "BASARILI") {
+                        fotoImg.style.borderColor = "#0f0";
+                        fotoImg.style.boxShadow = "0 0 15px #0f0";
+                    } else {
+                        fotoImg.style.borderColor = "#f00";
+                        fotoImg.style.boxShadow = "0 0 15px #f00";
+                    }
+                    fotoAlani.style.display = "block";
+                    
+                    setTimeout(() => {
+                        fotoAlani.style.display = "none";
+                    }, 4000);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

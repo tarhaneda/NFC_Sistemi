@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kullanıcı Yönetimi - Güvenlik Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 30px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #0f0;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background: #111;
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            color: #fff;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .alert-box {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.5);
+        }
+        .nfc-group {
+            display: flex;
+            gap: 10px;
+        }
+        .nfc-group input {
+            flex: 1;
+        }
+        .btn-nfc {
+            background: #222;
+            color: #0ff;
+            border: 1px solid #0ff;
+            padding: 0 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-nfc:hover {
+            background: #0ff;
+            color: #000;
+        }
+        
+        .camera-section {
+            border: 1px dashed rgba(0,255,0,0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.2);
+        }
+        #foto_onizleme {
+            max-width: 100%;
+            border-radius: 10px;
+            display: none;
+            margin: 15px auto;
+            border: 2px solid #0f0;
+        }
+        .btn-camera {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.3s;
+        }
+        .btn-camera:hover {
+            background: #0c0;
+        }
+        .btn-retake {
+            background: #ffaa00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            margin: 10px auto;
+            transition: 0.3s;
+        }
+        .btn-retake:hover {
+            background: #e69900;
+        }
+
+        /* YENİ: KULLANICI LİSTESİ STİLLERİ */
+        .users-table-container {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+            font-size: 1em;
+        }
+        .users-table th, .users-table td {
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: left;
+        }
+        .users-table th {
+            background: rgba(0, 255, 0, 0.1);
+            color: #0f0;
+        }
+        
+        /* ŞIK FİLTRE BUTONLARI */
+        .user-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .btn-user-filter {
+            background: transparent;
+            border: 1px solid #555;
+            color: #aaa;
+            padding: 8px 15px;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+        .btn-user-filter:hover {
+            border-color: #0f0;
+            color: #0f0;
+        }
+        .btn-user-filter.active {
+            background: #0f0;
+            color: #000;
+            border-color: #0f0;
+            font-weight: bold;
+        }
+
+        /* TOGGLE ŞALTERİ (AÇ/KAPA) */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #f00;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #0f0;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* HATA ÇÖZEN CLASSLAR */
+        .yazi-aktif { color: #0f0; font-weight: bold; }
+        .yazi-pasif { color: #f00; font-weight: bold; }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <!-- Üst Menü -->
+    <nav class="top-nav glass-effect">
+        <div class="nav-logo">🛡️ NFC & YÜZ TANIMA SİSTEMİ</div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Ana Panel</a>
+            <a href="{{ url_for('kullanici_yonetimi') }}" class="active">Kullanıcı Yönetimi</a>
+            <a href="{{ url_for('loglar') }}">Sistem Logları</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 15px;">Çıkış Yap 🚪</a>
+
+        </div>
+    </nav>
+
+    <div class="main-content" style="display: block;">
+        
+        <!-- YENİ KULLANICI EKLEME ALANI -->
+        <div class="glass-effect" style="padding: 20px; margin-bottom: 20px;">
+            <div class="section-title">Yeni Personel Kayıt Merkezi</div>
+            
+            <div class="form-container glass-effect">
+                {% if mesaj %}
+                    {% if 'BAŞARILI' in mesaj %}
+                        <div class="alert-box" style="border: 2px solid #0f0; color: #0f0;">
+                    {% else %}
+                        <div class="alert-box" style="border: 2px solid #f00; color: #f00;">
+                    {% endif %}
+                        {{ mesaj }}
+                        </div>
+                {% endif %}
+
+                <form method="POST" action="{{ url_for('kullanici_yonetimi') }}">
+                    <div class="form-group">
+                        <label>Ad Soyad:</label>
+                        <input type="text" name="ad_soyad" placeholder="Örn: Eda Yılmaz" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>NFC Kart Şifresi (UID):</label>
+                        <div class="nfc-group">
+                            <input type="text" id="nfc_uid_input" name="nfc_uid" placeholder="Kart okutulduğunda otomatik dolacak..." required>
+                            <button type="button" class="btn-nfc" onclick="sanalNfcOku()">NFC Cihazından Oku</button>
+                        </div>
+                    </div>
+
+                    <div class="camera-section">
+                        <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma (Vesikalık) Kaydı:</label>
+                        <img id="foto_onizleme" src="">
+                        <input type="hidden" name="fotograf_base64" id="fotograf_base64" required>
+                        <button type="button" class="btn-camera" id="btn_cek" onclick="fotografCek()">📸 KAMERADAN FOTOĞRAF ÇEK</button>
+                        <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄 Kötü Çıktı, Yeniden Çek</button>
+                    </div>
+
+                    <button type="submit" class="glow-on-hover btn-large" style="width: 100%;">KULLANICIYI SİSTEME KAYDET</button>
+                </form>
+            </div>
+        </div>
+
+
+        <!-- SİSTEMDEKİ KULLANICILARI LİSTELEME ALANI -->
+        <div class="glass-effect" style="padding: 20px;">
+            <div class="section-title" style="border: none; padding: 0;">Sistemde Kayıtlı Personeller</div>
+            
+            <div class="users-table-container">
+                
+                <div class="user-filters">
+                    <a href="{{ url_for('kullanici_yonetimi', filtre='tumu') }}" class="btn-user-filter {% if aktif_filtre == 'tumu' %}active{% endif %}">Tümü</a>
+                    <a href="{{ url_for('kullanici_yonetimi', filtre='aktif') }}" class="btn-user-filter {% if aktif_filtre == 'aktif' %}active{% endif %}">Sadece Aktifler</a>
+                    <a href="{{ url_for('kullanici_yonetimi', filtre='pasif') }}" class="btn-user-filter {% if aktif_filtre == 'pasif' %}active{% endif %}">Sadece Pasifler (Dondurulmuş)</a>
+                </div>
+
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ad Soyad</th>
+                            <th>NFC Şifresi</th>
+                            <th>Kayıt Tarihi</th>
+                            <th>Geçiş Yetkisi (Aç/Kapa)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for kisi in kullanicilar %}
+                        <tr>
+                            <td>{{ kisi.id }}</td>
+                            <td>{{ kisi.ad_soyad }}</td>
+                            <td style="font-family: monospace; color: #0ff;">{{ kisi.nfc_uid }}</td>
+                            <td style="color: #aaa;">{{ kisi.kayit_tarihi }}</td>
+                            <td>
+                                <!-- YETKİ ŞALTERİ -->
+                                <label class="switch">
+                                  <input type="checkbox" onchange="yetkiDegistir('{{ kisi.nfc_uid }}', this.checked)" {% if kisi.aktif_mi %}checked{% endif %}>
+                                  <span class="slider"></span>
+                                </label>
+                                <!-- HATAYI ÇÖZDÜĞÜMÜZ CLASS KULLANIMI -->
+                                <span style="margin-left: 10px;" class="{% if kisi.aktif_mi %}yazi-aktif{% else %}yazi-pasif{% endif %}" id="yetki_yazisi_{{ kisi.nfc_uid }}">
+                                    {% if kisi.aktif_mi %}Aktif{% else %}Pasif{% endif %}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #ccc; padding: 20px;">Bu filtreye uygun kayıtlı personel bulunamadı.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- KAMERA VE NFC SİMÜLATÖRÜ JAVASCRIPT KODLARI -->
+    <script>
+        function sanalNfcOku() {
+            let uid = prompt("Lütfen test için cihaza okutulmuş gibi örnek bir NFC Şifresi girin:", "1A2B3C4D");
+            if(uid) {
+                document.getElementById('nfc_uid_input').value = uid.toUpperCase();
+            }
+        }
+
+        function fotografCek() {
+            let btnCek = document.getElementById('btn_cek');
+            btnCek.innerHTML = "⏳ Kamera Uyanıyor...";
+            btnCek.disabled = true;
+
+            fetch('/api/kamera_cek')
+            .then(response => response.json())
+            .then(data => {
+                if (data.durum === "BASARILI") {
+                    document.getElementById('foto_onizleme').src = data.foto;
+                    document.getElementById('foto_onizleme').style.display = "block";
+                    document.getElementById('fotograf_base64').value = data.foto;
+                    
+                    btnCek.style.display = "none";
+                    document.getElementById('btn_yeniden').style.display = "block";
+                } else {
+                    alert("Kamera Hatası: " + data.mesaj);
+                    btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
+                    btnCek.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error("Hata:", error);
+                alert("Kameraya bağlanılamadı!");
+                btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
+                btnCek.disabled = false;
+            });
+        }
+
+        function fotografSifirla() {
+            document.getElementById('foto_onizleme').style.display = "none";
+            document.getElementById('foto_onizleme').src = "";
+            document.getElementById('fotograf_base64').value = "";
+            
+            let btnCek = document.getElementById('btn_cek');
+            btnCek.style.display = "block";
+            btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
+            btnCek.disabled = false;
+            
+            document.getElementById('btn_yeniden').style.display = "none";
+        }
+
+        function yetkiDegistir(uid, yeniDurumCheck) {
+            const yeniDurumInt = yeniDurumCheck ? 1 : 0;
+            const yaziSpan = document.getElementById('yetki_yazisi_' + uid);
+            
+            yaziSpan.innerHTML = "İşleniyor...";
+            yaziSpan.style.color = "#ffaa00";
+
+            fetch('/api/yetki_degistir', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: uid, durum: yeniDurumInt})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.durum === "BASARILI") {
+                    if(yeniDurumCheck) {
+                        yaziSpan.innerHTML = "Aktif";
+                        // Artık class üzerinden ilerliyoruz
+                        yaziSpan.className = "yazi-aktif"; 
+                        yaziSpan.style.color = ""; // style color'u sıfırla ki class çalışsın
+                    } else {
+                        yaziSpan.innerHTML = "Pasif";
+                        yaziSpan.className = "yazi-pasif";
+                        yaziSpan.style.color = "";
+                    }
+                } else {
+                    alert("Yetki değiştirilemedi!");
+                    window.location.reload(); 
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                alert("Bağlantı hatası!");
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>

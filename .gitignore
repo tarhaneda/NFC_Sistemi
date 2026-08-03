@@ -5,3 +5,4 @@ venv/
 *.db
 config.json
 log_resimleri
+kapi_sistemi.db
