@@ -163,7 +163,6 @@ def kullanici_yonetimi():
     
 
 
-# ------- YENİ: YETKİ AÇ/KAPA API'Sİ -------
 @app.route('/api/yetki_degistir', methods=['POST'])
 def yetki_degistir():
     data = request.json
@@ -171,11 +170,23 @@ def yetki_degistir():
     yeni_durum = data.get('durum') # 1 (Aktif) veya 0 (Pasif)
     
     if nfc_uid and (yeni_durum == 0 or yeni_durum == 1):
+        # Önce kartın eski durumunu öğreniyoruz
+        eski_kullanici = db.kart_sorgula(nfc_uid)
+        isim = eski_kullanici['ad_soyad'] if eski_kullanici else nfc_uid
+        
+        # Yetkiyi güncelliyoruz
         db.kullanici_yetki_guncelle(nfc_uid, yeni_durum)
-        durum_metni = "AKTİF" if yeni_durum == 1 else "PASİF"
-        db.log_kaydet(f"Yetki Değişimi: {nfc_uid} kartı {durum_metni} yapıldı.", "SİSTEM_AYARI")
+        
+        # Eğer eski durum 2 (Bloke) ise ve yeni durum 1 (Aktif) oluyorsa özel mesaj at
+        if eski_kullanici and eski_kullanici['aktif_mi'] == 2 and yeni_durum == 1:
+            db.log_kaydet(f"{isim} - Kart blokesi kaldırıldı.", "SİSTEM_AYARI")
+        else:
+            durum_metni = "AKTİF" if yeni_durum == 1 else "PASİF"
+            db.log_kaydet(f"Yetki Değişimi: {isim} kartı {durum_metni} yapıldı.", "SİSTEM_AYARI")
+            
         return jsonify({"durum": "BASARILI"})
     return jsonify({"durum": "HATA"})
+
 
 
 @app.route('/api/kamera_cek', methods=['GET'])
@@ -243,44 +254,91 @@ def loglar():
     return render_template('loglar.html', kayitlar=kayitlar, su_anki_sayfa=sayfa_no, toplam_sayfa=toplam_sayfa, secili_durum=secili_durum, baslangic=baslangic_tarihi, bitis=bitis_tarihi)
 
 
-@app.route('/api/nfc_okutuldu', methods=['POST'])
-def nfc_okutuldu():
-    data = request.json
-    nfc_uid = data.get('uid')
-    
-    kullanici = db.kart_sorgula(nfc_uid)
+@app.route('/api/kart_kontrol', methods=['POST'])
+def kart_kontrol():
+    data=request.json
+    nfc_uid=data.get('uid').strip().upper()
+
+    kullanici=db.kart_sorgula(nfc_uid)
     if not kullanici:
         db.log_kaydet(f"Yabancı Kart: {nfc_uid}", "YABANCI_KART")
         return jsonify({"durum": "HATA", "mesaj": "Sisteme kayıtlı olmayan yabancı bir kart okutuldu!"})
-        
-    # ---KULLANICI PASİF Mİ? ---
-    if kullanici['aktif_mi'] == 0:
+
+    if kullanici['aktif_mi']==0:
         db.log_kaydet(f"{kullanici['ad_soyad']} pasif kartla girmeye çalıştı!", "YETKİSİZ_GİRİŞ_DENEMESİ")
-        return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Sayın {kullanici['ad_soyad']}, yetkiniz dondurulmuş."})
+        return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Sayın {kullanici['ad_soyad']}, yetkiniz dondurulmuş (İşten Ayrılan)."})
+
+    elif kullanici['aktif_mi']==2:
+        db.log_kaydet(f"Blokeli kartla giriş denemesi: {nfc_uid}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+        return jsonify({"durum": "HATA", "mesaj": "Bu kart şüpheli işlemler sebebiyle BLOKE edilmiştir! Yöneticinizle görüşün."})
+
+    return jsonify ({"durum": "BASARILI", "mesaj": f"Sayın {kullanici['ad_soyad']}, lütfen yüzünüzü kameraya hizalayıp taratın."})
+
+@app.route('/api/yuz_kontrol', methods=['POST'])
+def yuz_kontrol():
+    data=request.json
+    nfc_uid=data.get('uid').strip().upper()
+    fotograf_b64=data.get('image')
+
+    kullanici=db.kart_sorgula(nfc_uid)
+    if not kullanici or kullanici['aktif_mi'] != 1:
+        return jsonify({"durum": "HATA", "mesaj": "Geçersiz veya yetkisiz kart."})
         
-    print(f"[SİSTEM] {kullanici['ad_soyad']} için kart okutuldu. Kamera uyanıyor...")
-    kamera = cv2.VideoCapture(kamera_index)
-    basarili, kare = kamera.read()
-    kamera.release()
+    if "," in fotograf_b64:
+        fotograf_b64 = fotograf_b64.split(",")[1]
+
+    try: 
+        import numpy as np 
+        resim_verisi=base64.b64decode(fotograf_b64)
+        nparr=np.frombuffer(resim_verisi, np.uint8)
+        kare=cv2.imdecode(nparr,cv2.IMREAD_COLOR)
+
+        foto_yolu=kullanici['yuz_fotograf_yolu']
+        dogrulandi_mi, mesaj, islenmis_kare=yz.yuz_dogrula(kare, foto_yolu)
+
+        _,buffer=cv2.imencode('.jpg', islenmis_kare)
+        resim_b64_out=base64.b64encode(buffer).decode('utf-8')
     
-    if not basarili:
-        return jsonify({"durum": "HATA", "mesaj": "Kamera ulaşılamadı!"})
+        if dogrulandi_mi:
+            db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ")
+            return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}! Kapı açıldı.", "foto": resim_b64_out})
+        else:
+            return jsonify({"durum": "HATA", "mesaj": f"Eşleşme Başarısız: {mesaj}", "foto": resim_b64_out}) 
+    
+    except Exception as e:
+         return jsonify({"durum": "HATA", "mesaj": "Görüntü işlenemedi."})
+
+@app.route('/api/kart_bloke_et', methods=['POST'])
+def kart_bloke_et():
+    data = request.json
+    nfc_uid = data.get('uid').strip().upper()
+    
+    kullanici = db.kart_sorgula(nfc_uid)
+    if kullanici:
+        db.kullanici_yetki_guncelle(nfc_uid, 2)
         
-    foto_yolu = kullanici['yuz_fotograf_yolu'] 
-    dogrulandi_mi, mesaj, islenmis_kare = yz.yuz_dogrula(kare, foto_yolu)
-    
-    _, buffer = cv2.imencode('.jpg', islenmis_kare)
-    resim_b64 = base64.b64encode(buffer).decode('utf-8')
-    
-    if dogrulandi_mi:
-        db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ")
-        return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}! Kapı açıldı.", "foto": resim_b64})
-    else:
         os.makedirs("log_resimleri", exist_ok=True)
-        ihlal_foto_yolu=f"log_resimleri/ihlal_{nfc_uid}.jpg"
-        cv2.imwrite(ihlal_foto_yolu, islenmis_kare)
-        db.log_kaydet(f"{kullanici['ad_soyad']} adına başarısız deneme!", "İHLAL_GİRİŞİMİ",ihlal_foto_yolu)
-        return jsonify({"durum": "HATA", "mesaj": f"Güvenlik İhlali: {mesaj}", "foto": resim_b64})
+        fotograf_b64 = data.get('image')
+        ihlal_foto_yolu = ""
+        if fotograf_b64:
+            if "," in fotograf_b64:
+                fotograf_b64 = fotograf_b64.split(",")[1]
+            try:
+                resim_verisi = base64.b64decode(fotograf_b64)
+                ihlal_foto_yolu = f"log_resimleri/bloke_{nfc_uid}.jpg"
+                with open(ihlal_foto_yolu, "wb") as f:
+                    f.write(resim_verisi)
+            except:
+                pass
+                
+        db.log_kaydet(f"{kullanici['ad_soyad']} kartı BLOKE edildi (3 Hata)!", "YETKİSİZ_GİRİŞ_DENEMESİ", ihlal_foto_yolu)
+        return jsonify({"durum": "BASARILI", "mesaj": "Güvenlik İhlali: Kartınız bloke edildi!"})
+    return jsonify({"durum": "HATA", "mesaj": "Kart bulunamadı."})
+
+    
+    
+
+        
 
 
 @app.route('/kapi_ac', methods=['POST'])

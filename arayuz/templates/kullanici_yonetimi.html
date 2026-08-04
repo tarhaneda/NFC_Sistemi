@@ -193,6 +193,7 @@
         /* HATA ÇÖZEN CLASSLAR */
         .yazi-aktif { color: #0f0; font-weight: bold; }
         .yazi-pasif { color: #f00; font-weight: bold; }
+        .yazi-bloke { color: #ffaa00; font-weight: bold; text-decoration: underline;}
     </style>
 </head>
 <body class="dashboard-body">
@@ -323,17 +324,18 @@
                             <td>{{ kisi.ad_soyad }}</td>
                             <td style="font-family: monospace; color: #0ff;">{{ kisi.nfc_uid }}</td>
                             <td style="color: #aaa;">{{ kisi.kayit_tarihi }}</td>
-                            <td>
+                                                        <td>
                                 <!-- YETKİ ŞALTERİ -->
                                 <label class="switch">
-                                  <input type="checkbox" onchange="yetkiDegistir('{{ kisi.nfc_uid }}', this.checked)" {% if kisi.aktif_mi %}checked{% endif %}>
+                                  <input type="checkbox" onchange="yetkiDegistir('{{ kisi.nfc_uid }}', this.checked)" {% if kisi.aktif_mi == 1 %}checked{% endif %}>
                                   <span class="slider"></span>
                                 </label>
-                                <!-- HATAYI ÇÖZDÜĞÜMÜZ CLASS KULLANIMI -->
-                                <span style="margin-left: 10px;" class="{% if kisi.aktif_mi %}yazi-aktif{% else %}yazi-pasif{% endif %}" id="yetki_yazisi_{{ kisi.nfc_uid }}">
-                                    {% if kisi.aktif_mi %}Aktif{% else %}Pasif{% endif %}
+                                <!-- 3 DURUMLU YETKİ YAZISI -->
+                                <span style="margin-left: 10px;" class="{% if kisi.aktif_mi == 1 %}yazi-aktif{% elif kisi.aktif_mi == 0 %}yazi-pasif{% else %}yazi-bloke{% endif %}" id="yetki_yazisi_{{ kisi.nfc_uid }}">
+                                    {% if kisi.aktif_mi == 1 %}Aktif{% elif kisi.aktif_mi == 0 %}Pasif{% else %}⚠️ Blokeli{% endif %}
                                 </span>
                             </td>
+
                         </tr>
                         {% else %}
                         <tr>

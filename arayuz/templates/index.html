@@ -55,7 +55,7 @@
             </div>
         </div>
 
-        <div class="glass-effect" style="padding: 20px; text-align: center;">
+               <div class="glass-effect" style="padding: 20px; text-align: center;">
             <div class="section-title">Kapı Kontrol Merkezi (NFC Simülatörü)</div>
             
             <p style="color: #aaa; margin-bottom: 20px;">
@@ -64,40 +64,66 @@
             
             <div style="max-width: 400px; margin: 0 auto; display: flex; gap: 10px;">
                 <input type="text" id="sanal_nfc_uid" placeholder="Örn: 9A8B7C6D" style="flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #0f0; background: #111; color: white;">
-                <button onclick="nfcOkut()" class="glow-on-hover" style="padding: 12px 20px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer; background: #0f0; color: #000;">Sanal Kartı Okut</button>
+                <button onclick="kartKontrol()" class="glow-on-hover" style="padding: 12px 20px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer; background: #0f0; color: #000;">Sanal Kartı Okut</button>
             </div>
 
             <!-- Sonuçların gösterileceği alan -->
             <div id="islem_sonucu" style="margin-top: 25px; padding: 15px; border-radius: 8px; display: none; font-size: 1.1em;"></div>
             
-            <!-- Şipşak fotoğrafın gösterileceği alan -->
+            <!-- YENİ: Etkileşimli Kamera Alanı (WebRTC) -->
+            <div id="kamera_alani" style="margin-top: 25px; display: none;">
+                <p style="color: #0ff; margin-bottom: 10px;">Lütfen yüzünüzü aşağıdaki çerçeveye hizalayın</p>
+                <div style="position: relative; width: 320px; height: 240px; margin: 0 auto; border: 3px solid #0ff; border-radius: 10px; overflow: hidden; box-shadow: 0 0 15px #0ff;">
+                    <video id="videoStream" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                    <!-- Yüz hizalama çerçevesi (Karanlık overlay) -->
+                    <div style="position: absolute; top: 10%; left: 25%; width: 50%; height: 80%; border: 2px dashed rgba(0, 255, 0, 0.7); border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);"></div>
+                </div>
+                <p id="deneme_uyarisi" style="color: #0f0; font-weight: bold; margin-top: 10px;"></p>
+                <button id="btn_yuzu_tara" onclick="yuzuTara()" style="margin-top: 15px; padding: 12px 30px; background: #0f0; color: #000; font-weight: bold; font-size: 1.2em; border: none; border-radius: 5px; cursor: pointer; transition: 0.3s; box-shadow: 0 0 10px #0f0;">📸 Yüzü Tara</button>
+                <canvas id="canvasFrame" style="display: none;"></canvas>
+            </div>
+            
+            <!-- Doğrulama Sonucu Fotoğrafı -->
             <div id="foto_alani" style="margin-top: 15px; display: none;">
-                <p style="color: #0ff; font-weight: bold; margin-bottom: 5px;">Kamera Kaydı (Anlık):</p>
-                <img id="kamera_resmi" src="" style="max-width: 300px; border: 3px solid #0f0; border-radius: 10px; box-shadow: 0 0 15px #0f0;">
+                <p style="color: #0f0; font-weight: bold; margin-bottom: 5px;">İşlem Sonucu:</p>
+                <img id="sonuc_resmi" src="" style="max-width: 320px; border: 3px solid #0f0; border-radius: 10px;">
             </div>
         </div>
         
     </div>
 
+    <!-- KAMERA VE 3 DENEME HAKKI MANTIĞI -->
     <script>
-        function nfcOkut() {
-            const uid = document.getElementById('sanal_nfc_uid').value;
+        let aktifUid = "";
+        let kalanDeneme = 3;
+        let videoStream = null;
+
+        function kartKontrol() {
+            const uid = document.getElementById('sanal_nfc_uid').value.trim();
             if(!uid) {
                 alert("Lütfen bir UID girin!");
                 return;
             }
 
             const sonucDiv = document.getElementById('islem_sonucu');
+            const kameraAlani = document.getElementById('kamera_alani');
             const fotoAlani = document.getElementById('foto_alani');
-            const fotoImg = document.getElementById('kamera_resmi');
             
+            // Verileri Sıfırla
+            aktifUid = uid;
+            kalanDeneme = 3;
+            fotoAlani.style.display = "none";
+            kameraAlani.style.display = "none";
+            if(videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+            }
+
             sonucDiv.style.display = "block";
-            sonucDiv.innerHTML = "⏳ Kart işleniyor, kamera bekleniyor...";
+            sonucDiv.innerHTML = "⏳ Kart veritabanında aranıyor...";
             sonucDiv.style.border = "1px solid #ffaa00";
             sonucDiv.style.color = "#ffaa00";
-            fotoAlani.style.display = "none";
 
-            fetch('/api/nfc_okutuldu', {
+            fetch('/api/kart_kontrol', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({uid: uid})
@@ -106,30 +132,146 @@
             .then(data => {
                 sonucDiv.innerHTML = data.mesaj;
                 if(data.durum === "BASARILI") {
-                    sonucDiv.style.border = "2px solid #0f0";
-                    sonucDiv.style.color = "#0f0";
+                    sonucDiv.style.border = "2px solid #0ff";
+                    sonucDiv.style.color = "#0ff";
+                    kameraBaslat(); // Kart geçerliyse kamerayı aç
                 } else {
                     sonucDiv.style.border = "2px solid #f00";
                     sonucDiv.style.color = "#f00";
                 }
+            });
+        }
 
-                if(data.foto) {
-                    fotoImg.src = "data:image/jpeg;base64," + data.foto;
-                    if(data.durum === "BASARILI") {
-                        fotoImg.style.borderColor = "#0f0";
-                        fotoImg.style.boxShadow = "0 0 15px #0f0";
-                    } else {
-                        fotoImg.style.borderColor = "#f00";
-                        fotoImg.style.boxShadow = "0 0 15px #f00";
-                    }
-                    fotoAlani.style.display = "block";
+        function kameraBaslat() {
+            const video = document.getElementById('videoStream');
+            const kameraAlani = document.getElementById('kamera_alani');
+            const uyari = document.getElementById('deneme_uyarisi');
+            
+            uyari.innerHTML = `Kalan Deneme Hakkı: ${kalanDeneme}`;
+            uyari.style.color = "#0f0";
+            
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                videoStream = stream;
+                video.srcObject = stream;
+                kameraAlani.style.display = "block";
+                document.getElementById('islem_sonucu').style.display = "none";
+            })
+            .catch(err => {
+                console.error("Kamera hatası:", err);
+                alert("Kameraya erişilemedi! Lütfen tarayıcının adres çubuğundaki kamera iznini onaylayın.");
+            });
+        }
+
+        function yuzuTara() {
+            const video = document.getElementById('videoStream');
+            const canvas = document.getElementById('canvasFrame');
+            const ctx = canvas.getContext('2d');
+            
+            // Görüntüyü canvas'a kopyala
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // Görüntü aynalı olduğu için çevirip çiziyoruz
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Base64 yapıp metne çevir
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            const btn = document.getElementById('btn_yuzu_tara');
+            btn.innerHTML = "⏳ Yapay Zeka İşliyor...";
+            btn.disabled = true;
+
+            fetch('/api/yuz_kontrol', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: aktifUid, image: dataUrl})
+            })
+            .then(response => response.json())
+            .then(data => {
+                btn.innerHTML = "📸 Yüzü Tara";
+                btn.disabled = false;
+                
+                const sonucDiv = document.getElementById('islem_sonucu');
+                sonucDiv.style.display = "block";
+                
+                if(data.durum === "BASARILI") {
+                    // KAPI AÇILDI
+                    sonucDiv.innerHTML = "✅ " + data.mesaj;
+                    sonucDiv.style.border = "2px solid #0f0";
+                    sonucDiv.style.color = "#0f0";
+                    kapatKamera();
+                    gosterSonuc(data.foto, "#0f0");
+                } else {
+                    // EŞLEŞMEDİ
+                    kalanDeneme--;
+                    const uyari = document.getElementById('deneme_uyarisi');
                     
-                    setTimeout(() => {
-                        fotoAlani.style.display = "none";
-                    }, 4000);
+                    if(kalanDeneme > 0) {
+                        sonucDiv.innerHTML = "❌ " + data.mesaj;
+                        sonucDiv.style.border = "2px solid #ffaa00";
+                        sonucDiv.style.color = "#ffaa00";
+                        
+                        if(kalanDeneme === 1) {
+                            uyari.innerHTML = `⚠️ DİKKAT! Son hakkınız. Başarısız olursa kart BLOKE edilecek!`;
+                            uyari.style.color = "#f00";
+                        } else {
+                            uyari.innerHTML = `Kalan Deneme Hakkı: ${kalanDeneme}`;
+                            uyari.style.color = "#ffaa00";
+                        }
+                    } else {
+                        // HAK BİTTİ, KART BLOKE OLUYOR
+                        kapatKamera();
+                        blokeEt(dataUrl);
+                    }
                 }
             });
+        }
+
+        function blokeEt(fotoB64) {
+            const sonucDiv = document.getElementById('islem_sonucu');
+            sonucDiv.innerHTML = "🚨 3 hatalı deneme tespit edildi! Kart bloke ediliyor...";
+            sonucDiv.style.border = "2px solid #f00";
+            sonucDiv.style.color = "#f00";
+
+            fetch('/api/kart_bloke_et', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({uid: aktifUid, image: fotoB64})
+            })
+            .then(response => response.json())
+            .then(data => {
+                sonucDiv.innerHTML = `❌ ${data.mesaj}`;
+            });
+        }
+
+        function kapatKamera() {
+            document.getElementById('kamera_alani').style.display = "none";
+            if(videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+        }
+
+        function gosterSonuc(fotoB64, renk) {
+            if(!fotoB64) return;
+            const fotoAlani = document.getElementById('foto_alani');
+            const sonucResmi = document.getElementById('sonuc_resmi');
+            
+            sonucResmi.src = "data:image/jpeg;base64," + fotoB64;
+            sonucResmi.style.borderColor = renk;
+            sonucResmi.style.boxShadow = `0 0 15px ${renk}`;
+            fotoAlani.style.display = "block";
+            
+            // 5 saniye sonra ekranı temizle
+            setTimeout(() => {
+                fotoAlani.style.display = "none";
+                document.getElementById('islem_sonucu').style.display = "none";
+                document.getElementById('sanal_nfc_uid').value = ""; // UID kutusunu temizle
+            }, 5000);
         }
     </script>
 </body>
 </html>
+
