@@ -195,6 +195,8 @@
         .yazi-pasif { color: #f00; font-weight: bold; }
         .yazi-bloke { color: #ffaa00; font-weight: bold; text-decoration: underline;}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 </head>
 <body class="dashboard-body">
 
@@ -241,13 +243,28 @@
                         </div>
                     </div>
 
-                    <div class="camera-section">
+                                        <div class="camera-section">
                         <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma (Vesikalık) Kaydı:</label>
+                        
+                        <!-- YENİ: Canlı Video Alanı -->
+                        <div id="canli_kamera_alani" style="display: none; position: relative; width: 100%; max-width: 320px; height: 240px; margin: 0 auto 15px auto; border: 2px solid #0ff; border-radius: 10px; overflow: hidden;">
+                            <video id="videoStreamKayit" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                            <!-- Yüz hizalama çerçevesi -->
+                            <div id="yuz_cercevesi_kayit" style="position: absolute; top: 10%; left: 25%; width: 50%; height: 80%; border: 2px dashed rgba(0, 255, 0, 0.7); border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); transition: 0.3s;"></div>
+                        </div>
+                        
+                        <p id="canlilik_uyari_kayit" style="color: #ffaa00; margin-bottom: 10px; font-weight: bold; font-size: 1.1em; display: none;">
+                            🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!
+                        </p>
+
                         <img id="foto_onizleme" src="">
                         <input type="hidden" name="fotograf_base64" id="fotograf_base64" required>
-                        <button type="button" class="btn-camera" id="btn_cek" onclick="fotografCek()">📸 KAMERADAN FOTOĞRAF ÇEK</button>
-                        <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄 Kötü Çıktı, Yeniden Çek</button>
+                        <canvas id="canvasKayit" style="display: none;"></canvas>
+
+                        <button type="button" class="btn-camera" id="btn_cek" onclick="kamerayiAc()">🎥 CANLI KAMERAYI AÇ</button>
+                        <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄 Yeniden Çek</button>
                     </div>
+
 
                     <button type="submit" class="glow-on-hover btn-large" style="width: 100%;">KULLANICIYI SİSTEME KAYDET</button>
                 </form>
@@ -358,47 +375,127 @@
             }
         }
 
-        function fotografCek() {
-            let btnCek = document.getElementById('btn_cek');
-            btnCek.innerHTML = "⏳ Kamera Uyanıyor...";
-            btnCek.disabled = true;
+                let kayitVideoStream = null;
+        let kayitFaceMesh = null;
+        let kayitMpCamera = null;
+        let kayitCanliMi = false; 
+        let kayitGozKapali = false;
 
-            fetch('/api/kamera_cek')
-            .then(response => response.json())
-            .then(data => {
-                if (data.durum === "BASARILI") {
-                    document.getElementById('foto_onizleme').src = data.foto;
-                    document.getElementById('foto_onizleme').style.display = "block";
-                    document.getElementById('fotograf_base64').value = data.foto;
-                    
-                    btnCek.style.display = "none";
-                    document.getElementById('btn_yeniden').style.display = "block";
-                } else {
-                    alert("Kamera Hatası: " + data.mesaj);
-                    btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
-                    btnCek.disabled = false;
-                }
-            })
-            .catch(error => {
-                console.error("Hata:", error);
-                alert("Kameraya bağlanılamadı!");
-                btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
-                btnCek.disabled = false;
+        function hesaplaEAR(goz) {
+            const dikey1 = Math.hypot(goz[1].x - goz[5].x, goz[1].y - goz[5].y);
+            const dikey2 = Math.hypot(goz[2].x - goz[4].x, goz[2].y - goz[4].y);
+            const yatay = Math.hypot(goz[0].x - goz[3].x, goz[0].y - goz[3].y);
+            return (dikey1 + dikey2) / (2.0 * yatay);
+        }
+
+        function initKayitFaceMesh() {
+            if(kayitFaceMesh) return; 
+            kayitFaceMesh = new FaceMesh({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+            }});
+            kayitFaceMesh.setOptions({
+                maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
             });
+            kayitFaceMesh.onResults(onKayitResults);
+        }
+
+        function onKayitResults(results) {
+            if (kayitCanliMi) return; 
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+                // Sağ ve sol göz koordinatları
+                const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
+                const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
+                
+                const ortalamaEAR = (hesaplaEAR(solGoz) + hesaplaEAR(sagGoz)) / 2;
+                
+                if (ortalamaEAR < 0.22) { 
+                    kayitGozKapali = true; 
+                } else if (kayitGozKapali && ortalamaEAR > 0.25) {
+                    kayitCanliMi = true; 
+                    document.getElementById('yuz_cercevesi_kayit').style.borderColor = "#0f0";
+                    document.getElementById('canlilik_uyari_kayit').innerHTML = "✅ Harika! Fotoğraf çekildi!";
+                    document.getElementById('canlilik_uyari_kayit').style.color = "#0f0";
+                    
+                    // Göz tam açık çıksın diye çok ufak (200ms) bekletip çekiyoruz
+                    setTimeout(otomatikFotografCek, 200); 
+                }
+            }
+        }
+
+        function kamerayiAc() {
+            document.getElementById('btn_cek').style.display = "none";
+            const kameraAlani = document.getElementById('canli_kamera_alani');
+            const uyari = document.getElementById('canlilik_uyari_kayit');
+            const video = document.getElementById('videoStreamKayit');
+            
+            kameraAlani.style.display = "block";
+            uyari.style.display = "block";
+            uyari.innerHTML = "🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!";
+            uyari.style.color = "#ffaa00";
+            document.getElementById('yuz_cercevesi_kayit').style.borderColor = "rgba(0, 255, 0, 0.7)";
+            
+            kayitCanliMi = false;
+            kayitGozKapali = false; 
+            initKayitFaceMesh();
+            
+            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+            .then(stream => {
+                kayitVideoStream = stream;
+                video.srcObject = stream;
+                
+                if(kayitMpCamera) { kayitMpCamera.stop(); }
+                kayitMpCamera = new Camera(video, {
+                    onFrame: async () => { await kayitFaceMesh.send({image: video}); },
+                    width: 640, height: 480
+                });
+                kayitMpCamera.start();
+            })
+            .catch(err => {
+                console.error("Kamera hatası:", err);
+                alert("Kameraya erişilemedi!");
+                document.getElementById('btn_cek').style.display = "block";
+            });
+        }
+
+        function otomatikFotografCek() {
+            const video = document.getElementById('videoStreamKayit');
+            const canvas = document.getElementById('canvasKayit');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            document.getElementById('foto_onizleme').src = dataUrl;
+            document.getElementById('foto_onizleme').style.display = "block";
+            document.getElementById('fotograf_base64').value = dataUrl;
+            
+            kapatKayitKamera();
+            document.getElementById('btn_yeniden').style.display = "block";
+        }
+        
+        function kapatKayitKamera() {
+            document.getElementById('canli_kamera_alani').style.display = "none";
+            document.getElementById('canlilik_uyari_kayit').style.display = "none";
+            if(kayitMpCamera) { kayitMpCamera.stop(); }
+            if(kayitVideoStream) {
+                kayitVideoStream.getTracks().forEach(track => track.stop());
+                kayitVideoStream = null;
+            }
         }
 
         function fotografSifirla() {
             document.getElementById('foto_onizleme').style.display = "none";
             document.getElementById('foto_onizleme').src = "";
             document.getElementById('fotograf_base64').value = "";
-            
-            let btnCek = document.getElementById('btn_cek');
-            btnCek.style.display = "block";
-            btnCek.innerHTML = "📸 KAMERADAN FOTOĞRAF ÇEK";
-            btnCek.disabled = false;
-            
             document.getElementById('btn_yeniden').style.display = "none";
+            
+            kamerayiAc(); // Yeniden çeke basınca doğrudan canlı kamerayı başlat!
         }
+
 
         function yetkiDegistir(uid, yeniDurumCheck) {
             const yeniDurumInt = yeniDurumCheck ? 1 : 0;
