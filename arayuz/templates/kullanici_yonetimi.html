@@ -332,6 +332,7 @@
                             <th>NFC Şifresi</th>
                             <th>Kayıt Tarihi</th>
                             <th>Geçiş Yetkisi (Aç/Kapa)</th>
+                            <th>İşlem</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -351,6 +352,9 @@
                                 <span style="margin-left: 10px;" class="{% if kisi.aktif_mi == 1 %}yazi-aktif{% elif kisi.aktif_mi == 0 %}yazi-pasif{% else %}yazi-bloke{% endif %}" id="yetki_yazisi_{{ kisi.nfc_uid }}">
                                     {% if kisi.aktif_mi == 1 %}Aktif{% elif kisi.aktif_mi == 0 %}Pasif{% else %}⚠️ Blokeli{% endif %}
                                 </span>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('kullanici_duzenle', id=kisi.id) }}" style="background: #ffaa00; color: #000; padding: 6px 12px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s; display: inline-block;">✏️ Düzenle</a>
                             </td>
 
                         </tr>

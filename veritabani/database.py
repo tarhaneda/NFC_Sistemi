@@ -131,5 +131,24 @@ def istatistik_tarih_filtreli(baslangic_tarihi, bitis_tarihi, olay_durumu):
     baglanti.close()
     return sayi
 
+def kullanici_getir(kullanici_id):
+    baglanti=veritabani_baglantisi_al()
+    imlec=baglanti.cursor()
+    imlec.execute("SELECT * FROM kullanicilar WHERE id=?",(kullanici_id,))
+    kisi=imlec.fetchone()
+    baglanti.close()
+    return dict(kisi) if kisi else None
+
+def kullanici_guncelle(kullanici_id, ad_soyad, nfc_uid):
+    try:
+        baglanti=veritabani_baglantisi_al()
+        imlec=baglanti.cursor()
+        imlec.execute('''UPDATE kullanicilar SET ad_soyad =?, nfc_uid =? WHERE id=?''',(ad_soyad,nfc_uid,kullanici_id))
+        baglanti.commit()
+        return True, "Kullanıcı başarıyla güncellendi"
+    except sqlite3.IntegrityError:
+        return False, "Hata: Bu NFC ID başka bir kullanıcıya ait"
+    finally:
+        baglanti.close()
 if __name__=="__main__":
     tablolari_olustur()

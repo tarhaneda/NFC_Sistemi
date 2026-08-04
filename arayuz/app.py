@@ -158,9 +158,58 @@ def kullanici_yonetimi():
                            bitis=bitis)
     
         
+@app.route('/kullanici_duzenle/<int:id>', methods=['GET', 'POST'])
+def kullanici_duzenle(id):
+    if not session.get('giris_basarili'):
+        return redirect(url_for('login'))
+        
+    mevcut_kisi = db.kullanici_getir(id)
+    if not mevcut_kisi:
+        return redirect(url_for('kullanici_yonetimi'))
 
+    mesaj = ""
+    if request.method == 'POST':
+        ad_soyad = request.form.get('ad_soyad')
+        nfc_uid = request.form.get('nfc_uid')
+        fotograf_base64 = request.form.get('fotograf_base64')
+        
+        eski_foto_yolu = mevcut_kisi['yuz_fotograf_yolu']
+        
+        # 1. EĞER YENİ FOTOĞRAF ÇEKİLDİYSE
+        if fotograf_base64 and len(fotograf_base64) > 100:
+            import base64
+            try:
+                header, encoded = fotograf_base64.split(",", 1)
+                resim_verisi = base64.b64decode(encoded)
+                with open(eski_foto_yolu, "wb") as f:
+                    f.write(resim_verisi) # Eski fotoğrafın üzerine yeni resmi yaz
+                    
+                # ÇOK KRİTİK: YAPAY ZEKA HAFIZASINI (CACHE) TEMİZLE!
+                import yapay_zeka.yuz_tanima as yt
+                if eski_foto_yolu in yt.Hafiza_Cache:
+                    del yt.Hafiza_Cache[eski_foto_yolu]
+                    print(f"[{ad_soyad}] için yapay zeka hafızası SIFIRLANDI! İlk geçişinde yeniden yüz öğrenecek.")
+                    
+            except Exception as e:
+                mesaj = f"HATA: Fotoğraf güncellenemedi: {str(e)}"
+                return render_template('kullanici_duzenle.html', kisi=mevcut_kisi, mesaj=mesaj)
+
+        # 2. İSİM VE NFC BİLGİLERİNİ GÜNCELLE
+        basarili, guncelleme_mesaji = db.kullanici_guncelle(id, ad_soyad, nfc_uid)
+        
+        if basarili:
+            mevcut_kisi = db.kullanici_getir(id) # Sayfada yeni halini göstermek için tekrar çek
+            mesaj = "✅ " + guncelleme_mesaji
+        else:
+            mesaj = "❌ " + guncelleme_mesaji
+        
+    return render_template('kullanici_duzenle.html', kisi=mevcut_kisi, mesaj=mesaj)
+
+                
+               
+        
     
-    
+
 
 
 @app.route('/api/yetki_degistir', methods=['POST'])

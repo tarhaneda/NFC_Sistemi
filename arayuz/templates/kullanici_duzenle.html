@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kullanıcı Düzenle - Güvenlik Sistemi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .form-container { max-width: 600px; margin: 40px auto; padding: 30px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 8px; color: #0f0; }
+        .form-group input { width: 100%; padding: 12px; background: #111; border: 1px solid rgba(0, 255, 0, 0.5); color: #fff; border-radius: 5px; box-sizing: border-box; }
+        .camera-section { border: 1px dashed rgba(0,255,0,0.5); padding: 20px; border-radius: 10px; margin-bottom: 20px; background: rgba(0,0,0,0.2); }
+        .btn-camera { background: #0f0; color: #000; border: none; padding: 10px 20px; font-size: 1.1em; font-weight: bold; border-radius: 5px; cursor: pointer; width: 100%; transition: 0.3s; }
+        .btn-camera:hover { background: #0c0; }
+        .btn-retake { background: #ffaa00; color: #000; border: none; padding: 10px 20px; font-size: 1em; border-radius: 5px; cursor: pointer; display: none; margin: 10px auto; transition: 0.3s; }
+        .btn-retake:hover { background: #e69900; }
+        .nfc-group { display: flex; gap: 10px; }
+        .nfc-group input { flex: 1; }
+        .btn-nfc { background: #222; color: #0ff; border: 1px solid #0ff; padding: 0 15px; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .btn-nfc:hover { background: #0ff; color: #000; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+<body class="dashboard-body">
+    
+    <nav class="top-nav glass-effect">
+        <div class="nav-logo">🛡️ DÜZENLEME PANELİ</div>
+        <div class="nav-links">
+            <a href="{{ url_for('kullanici_yonetimi') }}" style="color: #0ff;">⬅️ Geri Dön</a>
+        </div>
+    </nav>
+
+       <div class="form-container glass-effect">
+        <h2 style="color: white; margin-bottom: 20px;">Personel Düzenle: <span style="color:#0f0;">{{ kisi.ad_soyad }}</span></h2>
+        
+        {% if mesaj %}
+            {% if '✅' in mesaj %}
+                <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 2px solid #0f0; color: #0f0; font-weight:bold;">
+            {% else %}
+                <div style="padding: 15px; margin-bottom: 20px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 2px solid #f00; color: #f00; font-weight:bold;">
+            {% endif %}
+                {{ mesaj }}
+                </div>
+        {% endif %}
+
+        <form method="POST">
+
+        <form method="POST">
+            <div class="form-group">
+                <label>Ad Soyad:</label>
+                <input type="text" name="ad_soyad" value="{{ kisi.ad_soyad }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>NFC Kart Şifresi (UID):</label>
+                <div class="nfc-group">
+                    <input type="text" id="nfc_uid_input" name="nfc_uid" value="{{ kisi.nfc_uid }}" required>
+                    <button type="button" class="btn-nfc" onclick="sanalNfcOku()">NFC'den Oku</button>
+                </div>
+            </div>
+
+            <div class="camera-section">
+                <label style="color: #0f0; margin-bottom: 5px; display: block;">Fotoğraf Güncelleme (Opsiyonel):</label>
+                <p style="color:#aaa; font-size:0.85em; margin-bottom:15px; margin-top:0;">⚠️ Yeni fotoğraf çekmezseniz, eski fotoğrafı geçerli kalır.</p>
+
+                <div id="canli_kamera_alani" style="display: none; position: relative; width: 100%; max-width: 320px; height: 240px; margin: 0 auto 15px auto; border: 2px solid #0ff; border-radius: 10px; overflow: hidden;">
+                    <video id="videoStreamKayit" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                    <div id="yuz_cercevesi_kayit" style="position: absolute; top: 10%; left: 25%; width: 50%; height: 80%; border: 2px dashed rgba(0, 255, 0, 0.7); border-radius: 50%;"></div>
+                </div>
+                
+                <p id="canlilik_uyari_kayit" style="color: #ffaa00; margin-bottom: 10px; font-weight: bold; display: none;">
+                    🤖 Güncellemek için çerçeveye bakıp GÖZ KIRPIN!
+                </p>
+
+                <img id="foto_onizleme" src="" style="display:none; max-width:320px; width: 100%; border:3px solid #0f0; border-radius:10px; margin:0 auto 15px auto;">
+                <input type="hidden" name="fotograf_base64" id="fotograf_base64">
+                <canvas id="canvasKayit" style="display: none;"></canvas>
+
+                <button type="button" class="btn-camera" id="btn_cek" onclick="kamerayiAc()">📸 YENİ FOTOĞRAF ÇEK</button>
+                <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄 Yeniden Çek</button>
+            </div>
+
+            <button type="submit" style="width: 100%; padding:15px; font-size:1.2em; font-weight:bold; background:#0f0; color:#000; border:none; border-radius:8px; cursor:pointer;" class="glow-on-hover">💾 DEĞİŞİKLİKLERİ KAYDET</button>
+        </form>
+    </div>
+
+    <!-- JS KODLARI (KULLANICI YÖNETİMİNDEKİ İLE AYNI) -->
+    <script>
+        function sanalNfcOku() {
+            let uid = prompt("Yeni kartı okutun (Örnek Şifre):", "YENI-KART-123");
+            if(uid) document.getElementById('nfc_uid_input').value = uid.toUpperCase();
+        }
+
+        let kayitVideoStream=null, kayitFaceMesh=null, kayitMpCamera=null;
+        let kayitCanliMi=false, kayitGozKapali=false;
+
+        function hesaplaEAR(goz) {
+            const d1 = Math.hypot(goz[1].x - goz[5].x, goz[1].y - goz[5].y);
+            const d2 = Math.hypot(goz[2].x - goz[4].x, goz[2].y - goz[4].y);
+            const yatay = Math.hypot(goz[0].x - goz[3].x, goz[0].y - goz[3].y);
+            return (d1 + d2) / (2.0 * yatay);
+        }
+
+        function initKayitFaceMesh() {
+            if(kayitFaceMesh) return; 
+            kayitFaceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+            kayitFaceMesh.setOptions({maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5});
+            kayitFaceMesh.onResults(onKayitResults);
+        }
+
+        function onKayitResults(results) {
+            if (kayitCanliMi) return; 
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                const landmarks = results.multiFaceLandmarks[0];
+                const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
+                const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
+                const EAR = (hesaplaEAR(solGoz) + hesaplaEAR(sagGoz)) / 2;
+                
+                if (EAR < 0.22) kayitGozKapali = true; 
+                else if (kayitGozKapali && EAR > 0.25) {
+                    kayitCanliMi = true; 
+                    document.getElementById('yuz_cercevesi_kayit').style.borderColor = "#0f0";
+                    document.getElementById('canlilik_uyari_kayit').innerHTML = "✅ Çekildi!";
+                    document.getElementById('canlilik_uyari_kayit').style.color = "#0f0";
+                    setTimeout(otomatikFotografCek, 200); 
+                }
+            }
+        }
+
+        function kamerayiAc() {
+            document.getElementById('btn_cek').style.display = "none";
+            document.getElementById('canli_kamera_alani').style.display = "block";
+            document.getElementById('canlilik_uyari_kayit').style.display = "block";
+            document.getElementById('canlilik_uyari_kayit').innerHTML = "🤖 Fotoğrafı güncellemek için çerçeveye bakıp GÖZ KIRPIN!";
+            document.getElementById('canlilik_uyari_kayit').style.color = "#ffaa00";
+            document.getElementById('yuz_cercevesi_kayit').style.borderColor = "rgba(0, 255, 0, 0.7)";
+            
+            kayitCanliMi = false; kayitGozKapali = false; 
+            initKayitFaceMesh();
+            
+            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+            .then(stream => {
+                kayitVideoStream = stream;
+                document.getElementById('videoStreamKayit').srcObject = stream;
+                if(kayitMpCamera) kayitMpCamera.stop();
+                kayitMpCamera = new Camera(document.getElementById('videoStreamKayit'), {
+                    onFrame: async () => { await kayitFaceMesh.send({image: document.getElementById('videoStreamKayit')}); },
+                    width: 640, height: 480
+                });
+                kayitMpCamera.start();
+            }).catch(err => {
+                alert("Kamera Hatası!");
+                document.getElementById('btn_cek').style.display = "block";
+            });
+        }
+
+        function otomatikFotografCek() {
+            const video = document.getElementById('videoStreamKayit');
+            const canvas = document.getElementById('canvasKayit');
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            document.getElementById('foto_onizleme').src = dataUrl;
+            document.getElementById('foto_onizleme').style.display = "block";
+            document.getElementById('fotograf_base64').value = dataUrl;
+            
+            document.getElementById('canli_kamera_alani').style.display = "none";
+            document.getElementById('canlilik_uyari_kayit').style.display = "none";
+            if(kayitMpCamera) kayitMpCamera.stop();
+            if(kayitVideoStream) kayitVideoStream.getTracks().forEach(t => t.stop());
+            
+            document.getElementById('btn_yeniden').style.display = "block";
+        }
+        
+        function fotografSifirla() {
+            document.getElementById('foto_onizleme').style.display = "none";
+            document.getElementById('fotograf_base64').value = "";
+            document.getElementById('btn_yeniden').style.display = "none";
+            kamerayiAc(); 
+        }
+    </script>
+</body>
+</html>
