@@ -164,6 +164,7 @@ def kullanici_yonetimi():
         ad_soyad = request.form.get('ad_soyad')
         nfc_uid = request.form.get('nfc_uid')
         rol=request.form.get('rol', 'PERSONEL')
+        gecerlilik_tarihi=request.form.get('gecerlilik_tarihi', '')
         fotograf_b64 = request.form.get('fotograf_base64')
         
         if ad_soyad and nfc_uid and fotograf_b64:
@@ -182,7 +183,7 @@ def kullanici_yonetimi():
                     f.write(resim_verisi)
                 
                 db_foto_yolu = f"yapay_zeka/kayitli_yuzler/{dosya_adi}"
-                db.kullanici_ekle(ad_soyad, nfc_uid, db_foto_yolu, rol)
+                db.kullanici_ekle(ad_soyad, nfc_uid, db_foto_yolu, rol,gecerlilik_tarihi)
                 mesaj = f" BAŞARILI: {ad_soyad} sisteme '{dosya_adi}' adıyla kaydedildi!"
         else:
             mesaj = "Lütfen tüm alanları doldurun ve fotoğrafınızı çekin!"
@@ -253,6 +254,7 @@ def kullanici_duzenle(id):
         nfc_uid = request.form.get('nfc_uid')
         fotograf_base64 = request.form.get('fotograf_base64')
         rol=request.form.get('rol', 'PERSONEL')
+        gecerlilik_tarihi=request.form.get('gecerlilik_tarihi','')
         
         eski_foto_yolu = mevcut_kisi['yuz_fotograf_yolu']
         
@@ -276,7 +278,7 @@ def kullanici_duzenle(id):
                 return render_template('kullanici_duzenle.html', kisi=mevcut_kisi, mesaj=mesaj)
 
         # 2. İSİM VE NFC BİLGİLERİNİ GÜNCELLE
-        basarili, guncelleme_mesaji = db.kullanici_guncelle(id, ad_soyad, nfc_uid,rol)
+        basarili, guncelleme_mesaji = db.kullanici_guncelle(id, ad_soyad, nfc_uid,rol,gecerlilik_tarihi)
         
         if basarili:
             mevcut_kisi = db.kullanici_getir(id) # Sayfada yeni halini göstermek için tekrar çek
@@ -416,6 +418,16 @@ def kart_kontrol():
         db.log_kaydet(f"Blokeli kartla giriş denemesi: {nfc_uid}", "YETKİSİZ_GİRİŞ_DENEMESİ")
         return jsonify({"durum": "HATA", "mesaj": "Bu kart şüpheli işlemler sebebiyle BLOKE edilmiştir! Yöneticinizle görüşün."})
 
+        # YENİ EKLENECEK SÜRE KONTROLÜ
+    if kullanici.get('gecerlilik_tarihi'):
+        from datetime import datetime
+        gecerlilik = datetime.strptime(kullanici['gecerlilik_tarihi'], '%Y-%m-%d').date()
+        bugun = datetime.now().date()
+        if bugun > gecerlilik:
+            db.log_kaydet(f"Süresi dolmuş kart denemesi: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+            return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Kartınızın süresi {gecerlilik} tarihinde dolmuş."})
+
+
     return jsonify ({"durum": "BASARILI", "mesaj": f"Sayın {kullanici['ad_soyad']}, lütfen yüzünüzü kameraya hizalayıp taratın."})
 
 @app.route('/api/yuz_kontrol', methods=['POST'])
@@ -526,6 +538,51 @@ def admin_kart_kontrol():
         return jsonify({"durum": "BASARILI", "mesaj": "Yönetici kartı doğrulandı, lütfen şifrenizi girin."})
     else:
         return jsonify({"durum": "HATA", "mesaj": "Siz sadece personelsiniz, yönetim paneline giremezsiniz!"})
+
+import pandas as pd
+from io import BytesIO
+from flask import send_file
+
+@app.route('/api/rapor_indir')
+def rapor_indir():
+    if not session.get('giris_basarili'):
+        return redirect(url_for('login'))
+        
+    baslangic = request.args.get('baslangic', '')
+    bitis = request.args.get('bitis', '')
+    
+    baglanti = db.veritabani_baglantisi_al()
+    sorgu = "SELECT olay_detayi as 'Personel / İşlem', durum as 'Giriş Durumu', olay_tarihi as 'Tarih ve Saat' FROM kayitlar"
+    parametreler = []
+    sorgu_kriterleri = []
+    
+    if baslangic != '':
+        sorgu_kriterleri.append("date(olay_tarihi) >= ?")
+        parametreler.append(baslangic)
+    if bitis != '':
+        sorgu_kriterleri.append("date(olay_tarihi) <= ?")
+        parametreler.append(bitis)
+        
+    if len(sorgu_kriterleri) > 0:
+        sorgu += " WHERE " + " AND ".join(sorgu_kriterleri)
+        
+    sorgu += " ORDER BY id DESC"
+    
+    df = pd.read_sql_query(sorgu, baglanti, params=parametreler)
+    baglanti.close()
+    
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Geçiş Kayıtları')
+        
+    output.seek(0)
+    
+    tarih_metni = "tum_kayitlar"
+    if baslangic or bitis:
+        tarih_metni = f"{baslangic}_{bitis}"
+        
+    return send_file(output, download_name=f"puantaj_raporu_{tarih_metni}.xlsx", as_attachment=True)
+
 
 
 if __name__ == '__main__':
