@@ -163,6 +163,7 @@ def kullanici_yonetimi():
     if request.method == 'POST':
         ad_soyad = request.form.get('ad_soyad')
         nfc_uid = request.form.get('nfc_uid')
+        rol=request.form.get('rol', 'PERSONEL')
         fotograf_b64 = request.form.get('fotograf_base64')
         
         if ad_soyad and nfc_uid and fotograf_b64:
@@ -181,7 +182,7 @@ def kullanici_yonetimi():
                     f.write(resim_verisi)
                 
                 db_foto_yolu = f"yapay_zeka/kayitli_yuzler/{dosya_adi}"
-                db.kullanici_ekle(ad_soyad, nfc_uid, db_foto_yolu)
+                db.kullanici_ekle(ad_soyad, nfc_uid, db_foto_yolu, rol)
                 mesaj = f" BAŞARILI: {ad_soyad} sisteme '{dosya_adi}' adıyla kaydedildi!"
         else:
             mesaj = "Lütfen tüm alanları doldurun ve fotoğrafınızı çekin!"
@@ -251,6 +252,7 @@ def kullanici_duzenle(id):
         ad_soyad = request.form.get('ad_soyad')
         nfc_uid = request.form.get('nfc_uid')
         fotograf_base64 = request.form.get('fotograf_base64')
+        rol=request.form.get('rol', 'PERSONEL')
         
         eski_foto_yolu = mevcut_kisi['yuz_fotograf_yolu']
         
@@ -274,7 +276,7 @@ def kullanici_duzenle(id):
                 return render_template('kullanici_duzenle.html', kisi=mevcut_kisi, mesaj=mesaj)
 
         # 2. İSİM VE NFC BİLGİLERİNİ GÜNCELLE
-        basarili, guncelleme_mesaji = db.kullanici_guncelle(id, ad_soyad, nfc_uid)
+        basarili, guncelleme_mesaji = db.kullanici_guncelle(id, ad_soyad, nfc_uid,rol)
         
         if basarili:
             mevcut_kisi = db.kullanici_getir(id) # Sayfada yeni halini göstermek için tekrar çek
@@ -293,6 +295,8 @@ def kullanici_duzenle(id):
 
 @app.route('/api/yetki_degistir', methods=['POST'])
 def yetki_degistir():
+    if not session.get('giris_basarili'):
+        return jsonify({"durum": "HATA", "mesaj": "Yetkisiz Erişim!"}), 403
     data = request.json
     nfc_uid = data.get('uid')
     yeni_durum = data.get('durum') # 1 (Aktif) veya 0 (Pasif)
@@ -485,11 +489,49 @@ def kart_bloke_et():
 
 @app.route('/kapi_ac', methods=['POST'])
 def kapi_ac():
+    if not session.get('giris_basarili'):
+        return jsonify({"durum": "HATA", "mesaj": "Yetkisiz Erişim!"}), 403
     print("KAPI MANUEL OLARAK AÇILDI!")
     nfc.motor_ac()
     db.log_kaydet("Manuel butonla kapı açıldı", "BAŞARILI_GİRİŞ")
     return "OK"
 
+@app.route('/api/admin_kart_kontrol', methods=['POST'])
+def admin_kart_kontrol():
+    data = request.json
+    uid = data.get('uid')
+    
+    baglanti = db.veritabani_baglantisi_al()
+    imlec = baglanti.cursor()
+    
+    # 1. Acaba sistemde hiç YÖNETİCİ var mı?
+    imlec.execute("SELECT COUNT(*) FROM kullanicilar WHERE rol = 'YONETICI'")
+    yonetici_sayisi = imlec.fetchone()[0]
+    
+    if yonetici_sayisi == 0:
+        baglanti.close()
+        return jsonify({"durum": "BASARILI", "mesaj": "Sistemde yönetici yok, şifrenizi giriniz."})
+        
+    # 2. Sistemde yönetici var, o halde okutulan kartı kontrol et
+    imlec.execute("SELECT * FROM kullanicilar WHERE nfc_uid = ?", (uid,))
+    kullanici_row = imlec.fetchone()
+    baglanti.close()
+    
+    if not kullanici_row:
+        return jsonify({"durum": "HATA", "mesaj": "Kart sistemde kayıtlı değil!"})
+        
+    kullanici = dict(kullanici_row)
+    
+    if kullanici.get('rol') == 'YONETICI':
+        return jsonify({"durum": "BASARILI", "mesaj": "Yönetici kartı doğrulandı, lütfen şifrenizi girin."})
+    else:
+        return jsonify({"durum": "HATA", "mesaj": "Siz sadece personelsiniz, yönetim paneline giremezsiniz!"})
+
+
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:5000")
     app.run(host='127.0.0.1', port=5000, debug=True, use_reloader=False)
+
+
+
+

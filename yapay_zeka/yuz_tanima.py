@@ -9,10 +9,12 @@ def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
     if not os.path.exists(beklenen_kisi_foto_yolu):
         return False, "Sistemde referans fotoğraf bulunamadı", kamera_karesi
 
-    # KÜÇÜLTME YOK! Tam HD çözünürlükte maksimum doğrulukla arıyoruz.
-    rgb_kare = cv2.cvtColor(kamera_karesi, cv2.COLOR_BGR2RGB)
-    anlik_yuz_konumlari = face_recognition.face_locations(rgb_kare)
-    anlik_yuz_kodlari = face_recognition.face_encodings(rgb_kare, anlik_yuz_konumlari)
+    # HIZ İÇİN %75 KÜÇÜLTME EKLENDİ (Performansı 4-5 kat artırır!)
+    kucuk_kare = cv2.resize(kamera_karesi, (0, 0), fx=0.25, fy=0.25)
+    rgb_kare = cv2.cvtColor(kucuk_kare, cv2.COLOR_BGR2RGB)
+    
+    anlik_yuz_konumlari_kucuk = face_recognition.face_locations(rgb_kare)
+    anlik_yuz_kodlari = face_recognition.face_encodings(rgb_kare, anlik_yuz_konumlari_kucuk)
         
     if len(anlik_yuz_kodlari) == 0:
         return False, "Kamerada net bir yüz bulunamadı", kamera_karesi
@@ -32,7 +34,7 @@ def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
     eslesme_basarili = False
     hedef_konum = None
 
-    for (ust, sag, alt, sol), anlik_kod in zip(anlik_yuz_konumlari, anlik_yuz_kodlari):
+    for (ust, sag, alt, sol), anlik_kod in zip(anlik_yuz_konumlari_kucuk, anlik_yuz_kodlari):
         eslesme = face_recognition.compare_faces([beklenen_kodlama], anlik_kod, tolerance=0.6)[0]
         if eslesme:
             eslesme_basarili = True
@@ -41,13 +43,15 @@ def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
             
     if eslesme_basarili:
         ust, sag, alt, sol = hedef_konum
+        ust, sag, alt, sol = ust * 4, sag * 4, alt * 4, sol * 4
         
         cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 255, 0), 3) # Sadece çerçeve
         cv2.putText(kamera_karesi, "", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 255, 0), 2) # Yazı köşede
         return True, "Doğrulama başarılı.", kamera_karesi
 
     else:
-        ust, sag, alt, sol = anlik_yuz_konumlari[0]
+        ust, sag, alt, sol = anlik_yuz_konumlari_kucuk[0]
+        ust, sag, alt, sol = ust * 4, sag * 4, alt * 4, sol * 4
         cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 0, 255), 3) # Kırmızı çerçeve
         cv2.putText(kamera_karesi, "", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 0, 255), 2) # Yazı köşede
 

@@ -3,32 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Girişi - NFC & Yüz Tanıma</title>
-    <!-- Stil (CSS) dosyamızı bağlıyoruz -->
+    <title>Sistem Girişi</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .login-container { width: 400px; margin: 100px auto; padding: 40px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; }
+        .login-input { width: 100%; padding: 15px; margin: 15px 0; background: #111; border: 1px solid #0f0; color: #0f0; font-size: 1.2em; text-align: center; border-radius: 8px; }
+        #sifre_formu { display: none; }
+        #nfc_animasyon { margin: 20px 0; font-size: 3em; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.5; transform: scale(0.95); } }
+    </style>
 </head>
-<body class="login-body">
-    
+<body class="dashboard-body" style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+
     <div class="login-container glass-effect">
-        <div class="login-header">
-            <div class="lock-icon">🔒</div>
-            <h2>GÜVENLİK PANELİ</h2>
-            <p>Sisteme erişmek için şifrenizi girin.</p>
+        <h2 style="color: #fff; margin-bottom: 20px;">🛡️ YÖNETİM PANELİ</h2>
+        
+        <div id="kart_bekleme_ekrani">
+            <div id="nfc_animasyon">📡</div>
+            <h3 style="color: #0ff;" id="durum_yazisi">Lütfen Yönetici Kartınızı Okutun</h3>
         </div>
 
-        <!-- Hata mesajı varsa kırmızı renkte gösterecek -->
-        {% if hata %}
-            <div class="error-msg">{{ hata }}</div>
-        {% endif %}
-
-        <form action="/" method="POST">
-            <div class="input-group">
-                <!-- type="password" sayesinde yazdığınız şifre noktalı (gizli) görünür -->
-                <input type="password" name="sifre" placeholder="Şifrenizi Girin..." required>
-            </div>
-            <button type="submit" class="glow-on-hover">SİSTEME GİRİŞ YAP</button>
+        <form method="POST" id="sifre_formu">
+            <h4 style="color: #0f0; margin-bottom: 15px;">Yönetici Kimliği Doğrulandı!</h4>
+            <input type="password" name="sifre" class="login-input" placeholder="Sistem Şifresini Girin" required autofocus>
+            {% if mesaj %}<p style="color: #ff4444; font-weight: bold; margin-bottom: 15px;">{{ mesaj }}</p>{% endif %}
+            <button type="submit" class="glow-on-hover btn-large" style="width: 100%;">SİSTEME GİRİŞ YAP</button>
         </form>
     </div>
 
+    <script>
+        const sse = new EventSource('/api/bekleyen_kart_stream');
+        sse.onmessage = function(event) {
+            const gelen_uid = event.data.trim();
+            if(gelen_uid) {
+                document.getElementById('durum_yazisi').innerHTML = "Yetki Kontrol Ediliyor...";
+                document.getElementById('durum_yazisi').style.color = "#ffaa00";
+                
+                fetch('/api/admin_kart_kontrol', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({uid: gelen_uid})
+                }).then(response => response.json()).then(data => {
+                    if(data.durum === "BASARILI") {
+                        document.getElementById('kart_bekleme_ekrani').style.display = "none";
+                        document.getElementById('sifre_formu').style.display = "block";
+                    } else {
+                        document.getElementById('durum_yazisi').innerHTML = `❌ ${data.mesaj}`;
+                        document.getElementById('durum_yazisi').style.color = "#f00";
+                        setTimeout(() => {
+                            document.getElementById('durum_yazisi').innerHTML = "Lütfen Yönetici Kartınızı Okutun";
+                            document.getElementById('durum_yazisi').style.color = "#0ff";
+                        }, 4000);
+                    }
+                });
+            }
+        };
+
+                // Sayfa açılır açılmaz sistemde yönetici var mı kontrol et
+        fetch('/api/admin_kart_kontrol', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({uid: ""})
+        }).then(res => res.json()).then(data => {
+            if(data.durum === "BASARILI" && data.mesaj.includes("yönetici yok")) {
+                document.getElementById('kart_bekleme_ekrani').style.display = "none";
+                document.getElementById('sifre_formu').style.display = "block";
+            }
+        });
+
+    </script>
 </body>
 </html>

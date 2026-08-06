@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,19 +11,22 @@
             max-width: 600px;
             margin: 0 auto;
             padding: 30px;
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 15px;
             text-align: center;
         }
+
         .form-group {
             margin-bottom: 20px;
             text-align: left;
         }
+
         .form-group label {
             display: block;
             margin-bottom: 8px;
             color: #0f0;
         }
+
         .form-group input {
             width: 100%;
             padding: 12px;
@@ -32,19 +36,23 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+
         .alert-box {
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 8px;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
         }
+
         .nfc-group {
             display: flex;
             gap: 10px;
         }
+
         .nfc-group input {
             flex: 1;
         }
+
         .btn-nfc {
             background: #222;
             color: #0ff;
@@ -54,18 +62,20 @@
             cursor: pointer;
             transition: 0.3s;
         }
+
         .btn-nfc:hover {
             background: #0ff;
             color: #000;
         }
-        
+
         .camera-section {
-            border: 1px dashed rgba(0,255,0,0.5);
+            border: 1px dashed rgba(0, 255, 0, 0.5);
             padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
         }
+
         #foto_onizleme {
             max-width: 100%;
             border-radius: 10px;
@@ -73,6 +83,7 @@
             margin: 15px auto;
             border: 2px solid #0f0;
         }
+
         .btn-camera {
             background: #0f0;
             color: #000;
@@ -85,9 +96,11 @@
             width: 100%;
             transition: 0.3s;
         }
+
         .btn-camera:hover {
             background: #0c0;
         }
+
         .btn-retake {
             background: #ffaa00;
             color: #000;
@@ -100,6 +113,7 @@
             margin: 10px auto;
             transition: 0.3s;
         }
+
         .btn-retake:hover {
             background: #e69900;
         }
@@ -108,30 +122,35 @@
         .users-table-container {
             margin-top: 40px;
             padding-top: 20px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
+
         .users-table {
             width: 100%;
             border-collapse: collapse;
             color: white;
             font-size: 1em;
         }
-        .users-table th, .users-table td {
+
+        .users-table th,
+        .users-table td {
             padding: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             text-align: left;
         }
+
         .users-table th {
             background: rgba(0, 255, 0, 0.1);
             color: #0f0;
         }
-        
+
         /* ŞIK FİLTRE BUTONLARI */
         .user-filters {
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
         }
+
         .btn-user-filter {
             background: transparent;
             border: 1px solid #555;
@@ -141,10 +160,12 @@
             text-decoration: none;
             transition: 0.3s;
         }
+
         .btn-user-filter:hover {
             border-color: #0f0;
             color: #0f0;
         }
+
         .btn-user-filter.active {
             background: #0f0;
             color: #000;
@@ -159,19 +180,25 @@
             width: 50px;
             height: 24px;
         }
+
         .switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
+
         .slider {
             position: absolute;
             cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background-color: #f00;
             transition: .4s;
             border-radius: 24px;
         }
+
         .slider:before {
             position: absolute;
             content: "";
@@ -183,21 +210,36 @@
             transition: .4s;
             border-radius: 50%;
         }
-        input:checked + .slider {
+
+        input:checked+.slider {
             background-color: #0f0;
         }
-        input:checked + .slider:before {
+
+        input:checked+.slider:before {
             transform: translateX(26px);
         }
 
         /* HATA ÇÖZEN CLASSLAR */
-        .yazi-aktif { color: #0f0; font-weight: bold; }
-        .yazi-pasif { color: #f00; font-weight: bold; }
-        .yazi-bloke { color: #ffaa00; font-weight: bold; text-decoration: underline;}
+        .yazi-aktif {
+            color: #0f0;
+            font-weight: bold;
+        }
+
+        .yazi-pasif {
+            color: #f00;
+            font-weight: bold;
+        }
+
+        .yazi-bloke {
+            color: #ffaa00;
+            font-weight: bold;
+            text-decoration: underline;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 </head>
+
 <body class="dashboard-body">
 
     <!-- Üst Menü -->
@@ -213,375 +255,444 @@
     </nav>
 
     <div class="main-content" style="display: block;">
-        
+
         <!-- YENİ KULLANICI EKLEME ALANI -->
         <div class="glass-effect" style="padding: 20px; margin-bottom: 20px;">
             <div class="section-title">Yeni Personel Kayıt Merkezi</div>
-            
+
             <div class="form-container glass-effect">
                 {% if mesaj %}
-                    {% if 'BAŞARILI' in mesaj %}
-                        <div class="alert-box" style="border: 2px solid #0f0; color: #0f0;">
+                {% if 'BAŞARILI' in mesaj %}
+                <div class="alert-box" style="border: 2px solid #0f0; color: #0f0;">
                     {% else %}
-                        <div class="alert-box" style="border: 2px solid #f00; color: #f00;">
-                    {% endif %}
+                    <div class="alert-box" style="border: 2px solid #f00; color: #f00;">
+                        {% endif %}
                         {{ mesaj }}
-                        </div>
-                {% endif %}
-
-                <form method="POST" action="{{ url_for('kullanici_yonetimi') }}">
-                    <div class="form-group">
-                        <label>Ad Soyad:</label>
-                        <input type="text" name="ad_soyad" placeholder="Örn: Eda Yılmaz" required>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>NFC Kart Şifresi (UID):</label>
-                                                <div class="nfc-group">
-                            <input type="text" id="nfc_uid_input" name="nfc_uid" placeholder="Kart bekleniyor..." required readonly>
-                            <button type="button" class="btn-nfc" style="background: #222; cursor: default;">📡 Kartınızı Okutun</button>
+                    {% endif %}
+
+                    <form method="POST" action="{{ url_for('kullanici_yonetimi') }}">
+                        <div class="form-group">
+                            <label>Ad Soyad:</label>
+                            <input type="text" name="ad_soyad" placeholder="Örn: Eda Yılmaz" required>
                         </div>
 
-                    </div>
+                        <div class="form-group">
+                            <label>NFC Kart Şifresi (UID):</label>
+                            <div class="nfc-group">
+                                <input type="text" id="nfc_uid_input" name="nfc_uid" placeholder="Kart bekleniyor..."
+                                    required readonly>
+                                <button type="button" class="btn-nfc" style="background: #222; cursor: default;">📡
+                                    Kartınızı Okutun</button>
+                            </div>
 
-                                        <div class="camera-section">
-                        <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma (Vesikalık) Kaydı:</label>
-                        
-                        <!-- YENİ: Canlı Video Alanı -->
-                        <div id="canli_kamera_alani" style="display: none; position: relative; width: 100%; max-width: 320px; height: 240px; margin: 0 auto 15px auto; border: 2px solid #0ff; border-radius: 10px; overflow: hidden;">
-                            <video id="videoStreamKayit" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-                            <!-- Yüz hizalama çerçevesi -->
-                            <div id="yuz_cercevesi_kayit" style="position: absolute; top: 10%; left: 25%; width: 50%; height: 80%; border: 2px dashed rgba(0, 255, 0, 0.7); border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); transition: 0.3s;"></div>
                         </div>
-                        
-                        <p id="canlilik_uyari_kayit" style="color: #ffaa00; margin-bottom: 10px; font-weight: bold; font-size: 1.1em; display: none;">
-                            🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!
-                        </p>
-
-                        <img id="foto_onizleme" src="">
-                        <input type="hidden" name="fotograf_base64" id="fotograf_base64" required>
-                        <canvas id="canvasKayit" style="display: none;"></canvas>
-
-                        <button type="button" class="btn-camera" id="btn_cek" onclick="kamerayiAc()">🎥 CANLI KAMERAYI AÇ</button>
-                        <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄 Yeniden Çek</button>
-                    </div>
-
-
-                    <button type="submit" class="glow-on-hover btn-large" style="width: 100%;">KULLANICIYI SİSTEME KAYDET</button>
-                </form>
-            </div>
-        </div>
-
-
-        <!-- SİSTEMDEKİ KULLANICILARI LİSTELEME ALANI -->
-        <div class="glass-effect" style="padding: 20px;">
-            <div class="section-title" style="border: none; padding: 0;">Sistemde Kayıtlı Personeller</div>
-            
-            <div class="users-table-container">
-                
-                               <style>
-                    .filter-panel { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
-                    .filter-group { display: flex; flex-direction: column; gap: 5px; }
-                    .filter-group label { color: #0f0; font-size: 0.9em; }
-                    .filter-group input, .filter-group select { padding: 8px; background: #111; border: 1px solid #0f0; color: white; border-radius: 4px; color-scheme: dark; }
-                    .btn-filter { background: #0f0; color: #000; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-                </style>
-
-                <!-- YENİ GELİŞMİŞ FİLTRELEME PANELİ -->
-                <form method="GET" action="{{ url_for('kullanici_yonetimi') }}" class="filter-panel">
-                    <div class="filter-group">
-                        <label>Durum:</label>
-                        <select name="filtre">
-                            <option value="tumu" {% if aktif_filtre == 'tumu' %}selected{% endif %}>Tümü</option>
-                            <option value="aktif" {% if aktif_filtre == 'aktif' %}selected{% endif %}>Aktifler</option>
-                            <option value="pasif" {% if aktif_filtre == 'pasif' %}selected{% endif %}>Pasifler</option>
+                                            <div class="form-group">
+                        <label>Yetki Seviyesi (Rol):</label>
+                        <select name="rol" style="width: 100%; padding: 12px; background: #111; border: 1px solid rgba(0, 255, 0, 0.5); color: #fff; border-radius: 5px;">
+                            <option value="PERSONEL">Personel (Sadece Kapıdan Geçer)</option>
+                            <option value="YONETICI">Yönetici (Arayüze Girebilir)</option>
                         </select>
                     </div>
-                    
-                    <div class="filter-group">
-                        <label>Ad Soyad:</label>
-                        <input type="text" name="arama_ad" value="{{ arama_ad }}" placeholder="İsimde ara...">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>NFC UID:</label>
-                        <input type="text" name="arama_nfc" value="{{ arama_nfc }}" placeholder="Şifrede ara...">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>Başlangıç Tarihi:</label>
-                        <input type="date" name="baslangic" value="{{ baslangic }}">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label>Bitiş Tarihi:</label>
-                        <input type="date" name="bitis" value="{{ bitis }}">
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; padding-bottom: 2px;">
-                        <button type="submit" class="btn-filter">🔍 Filtrele</button>
-                        <a href="{{ url_for('kullanici_yonetimi') }}" style="color: #aaa; text-decoration: none; align-self: center; padding-left:5px;">Sıfırla</a>
-                    </div>
-                </form>
 
 
-                <table class="users-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Ad Soyad</th>
-                            <th>NFC Şifresi</th>
-                            <th>Kayıt Tarihi</th>
-                            <th>Geçiş Yetkisi (Aç/Kapa)</th>
-                            <th>İşlem</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for kisi in kullanicilar %}
-                        <tr>
-                            <td>{{ kisi.id }}</td>
-                            <td>{{ kisi.ad_soyad }}</td>
-                            <td style="font-family: monospace; color: #0ff;">{{ kisi.nfc_uid }}</td>
-                            <td style="color: #aaa;">{{ kisi.kayit_tarihi }}</td>
-                                                        <td>
-                                <!-- YETKİ ŞALTERİ -->
-                                <label class="switch">
-                                  <input type="checkbox" onchange="yetkiDegistir('{{ kisi.nfc_uid }}', this.checked)" {% if kisi.aktif_mi == 1 %}checked{% endif %}>
-                                  <span class="slider"></span>
-                                </label>
-                                <!-- 3 DURUMLU YETKİ YAZISI -->
-                                <span style="margin-left: 10px;" class="{% if kisi.aktif_mi == 1 %}yazi-aktif{% elif kisi.aktif_mi == 0 %}yazi-pasif{% else %}yazi-bloke{% endif %}" id="yetki_yazisi_{{ kisi.nfc_uid }}">
-                                    {% if kisi.aktif_mi == 1 %}Aktif{% elif kisi.aktif_mi == 0 %}Pasif{% else %}⚠️ Blokeli{% endif %}
-                                </span>
-                            </td>
-                            <td>
-                                <a href="{{ url_for('kullanici_duzenle', id=kisi.id) }}" style="background: #ffaa00; color: #000; padding: 6px 12px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s; display: inline-block;">✏️ Düzenle</a>
-                            </td>
+                        <div class="camera-section">
+                            <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma (Vesikalık)
+                                Kaydı:</label>
 
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: #ccc; padding: 20px;">Bu filtreye uygun kayıtlı personel bulunamadı.</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            <!-- YENİ: Canlı Video Alanı -->
+                            <div id="canli_kamera_alani"
+                                style="display: none; position: relative; width: 100%; max-width: 320px; height: 240px; margin: 0 auto 15px auto; border: 2px solid #0ff; border-radius: 10px; overflow: hidden;">
+                                <video id="videoStreamKayit" autoplay playsinline
+                                    style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                                <!-- Yüz hizalama çerçevesi -->
+                                <div id="yuz_cercevesi_kayit"
+                                    style="position: absolute; top: 10%; left: 25%; width: 50%; height: 80%; border: 2px dashed rgba(0, 255, 0, 0.7); border-radius: 50%; box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); transition: 0.3s;">
+                                </div>
+                            </div>
+
+                            <p id="canlilik_uyari_kayit"
+                                style="color: #ffaa00; margin-bottom: 10px; font-weight: bold; font-size: 1.1em; display: none;">
+                                🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!
+                            </p>
+
+                            <img id="foto_onizleme" src="">
+                            <input type="hidden" name="fotograf_base64" id="fotograf_base64" required>
+                            <canvas id="canvasKayit" style="display: none;"></canvas>
+
+                            <button type="button" class="btn-camera" id="btn_cek" onclick="kamerayiAc()">🎥 CANLI
+                                KAMERAYI AÇ</button>
+                            <button type="button" class="btn-retake" id="btn_yeniden" onclick="fotografSifirla()">🔄
+                                Yeniden Çek</button>
+                        </div>
+
+
+                        <button type="submit" class="glow-on-hover btn-large" style="width: 100%;">KULLANICIYI SİSTEME
+                            KAYDET</button>
+                    </form>
+                </div>
             </div>
 
+
+            <!-- SİSTEMDEKİ KULLANICILARI LİSTELEME ALANI -->
+            <div class="glass-effect" style="padding: 20px;">
+                <div class="section-title" style="border: none; padding: 0;">Sistemde Kayıtlı Personeller</div>
+
+                <div class="users-table-container">
+
+                    <style>
+                        .filter-panel {
+                            background: rgba(255, 255, 255, 0.05);
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 15px;
+                            align-items: flex-end;
+                        }
+
+                        .filter-group {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 5px;
+                        }
+
+                        .filter-group label {
+                            color: #0f0;
+                            font-size: 0.9em;
+                        }
+
+                        .filter-group input,
+                        .filter-group select {
+                            padding: 8px;
+                            background: #111;
+                            border: 1px solid #0f0;
+                            color: white;
+                            border-radius: 4px;
+                            color-scheme: dark;
+                        }
+
+                        .btn-filter {
+                            background: #0f0;
+                            color: #000;
+                            border: none;
+                            padding: 9px 20px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: bold;
+                        }
+                    </style>
+
+                    <!-- YENİ GELİŞMİŞ FİLTRELEME PANELİ -->
+                    <form method="GET" action="{{ url_for('kullanici_yonetimi') }}" class="filter-panel">
+                        <div class="filter-group">
+                            <label>Durum:</label>
+                            <select name="filtre">
+                                <option value="tumu" {% if aktif_filtre=='tumu' %}selected{% endif %}>Tümü</option>
+                                <option value="aktif" {% if aktif_filtre=='aktif' %}selected{% endif %}>Aktifler
+                                </option>
+                                <option value="pasif" {% if aktif_filtre=='pasif' %}selected{% endif %}>Pasifler
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Ad Soyad:</label>
+                            <input type="text" name="arama_ad" value="{{ arama_ad }}" placeholder="İsimde ara...">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>NFC UID:</label>
+                            <input type="text" name="arama_nfc" value="{{ arama_nfc }}" placeholder="Şifrede ara...">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Başlangıç Tarihi:</label>
+                            <input type="date" name="baslangic" value="{{ baslangic }}">
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Bitiş Tarihi:</label>
+                            <input type="date" name="bitis" value="{{ bitis }}">
+                        </div>
+
+                        <div style="display: flex; gap: 10px; padding-bottom: 2px;">
+                            <button type="submit" class="btn-filter">🔍 Filtrele</button>
+                            <a href="{{ url_for('kullanici_yonetimi') }}"
+                                style="color: #aaa; text-decoration: none; align-self: center; padding-left:5px;">Sıfırla</a>
+                        </div>
+                    </form>
+
+
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Ad Soyad</th>
+                                <th>NFC Şifresi</th>
+                                <th>Kayıt Tarihi</th>
+                                <th>Geçiş Yetkisi (Aç/Kapa)</th>
+                                <th>İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for kisi in kullanicilar %}
+                            <tr>
+                                <td>{{ kisi.id }}</td>
+                                <td>{{ kisi.ad_soyad }}</td>
+                                <td style="font-family: monospace; color: #0ff;">{{ kisi.nfc_uid }}</td>
+                                <td style="color: #aaa;">{{ kisi.kayit_tarihi }}</td>
+                                <td>
+                                    <!-- YETKİ ŞALTERİ -->
+                                    <label class="switch">
+                                        <input type="checkbox"
+                                            onchange="yetkiDegistir('{{ kisi.nfc_uid }}', this.checked)" {% if
+                                            kisi.aktif_mi==1 %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                    <!-- 3 DURUMLU YETKİ YAZISI -->
+                                    <span style="margin-left: 10px;"
+                                        class="{% if kisi.aktif_mi == 1 %}yazi-aktif{% elif kisi.aktif_mi == 0 %}yazi-pasif{% else %}yazi-bloke{% endif %}"
+                                        id="yetki_yazisi_{{ kisi.nfc_uid }}">
+                                        {% if kisi.aktif_mi == 1 %}Aktif{% elif kisi.aktif_mi == 0 %}Pasif{% else %}⚠️
+                                        Blokeli{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('kullanici_duzenle', id=kisi.id) }}"
+                                        style="background: #ffaa00; color: #000; padding: 6px 12px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s; display: inline-block;">✏️
+                                        Düzenle</a>
+                                </td>
+
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #ccc; padding: 20px;">Bu filtreye
+                                    uygun kayıtlı personel bulunamadı.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
         </div>
-    </div>
 
-    <!-- KAMERA VE NFC SİMÜLATÖRÜ JAVASCRIPT KODLARI -->
-    <script>
-               // Python'dan (Donanımdan) gelen kart şifrelerini anlık dinler
-        const sse = new EventSource('/api/bekleyen_kart_stream');
-        sse.onmessage = function(event) {
-            const gelen_uid = event.data.trim();
-            if(gelen_uid) {
-                document.getElementById('nfc_uid_input').value = gelen_uid;
-                
-                // Başarılı olduğunu belirten ufak görsel efekt
-                const btn = document.querySelector('.btn-nfc');
-                btn.innerHTML = "✅ Okundu!";
-                btn.style.background = "#0f0";
-                btn.style.color = "#000";
-            }
-        };
+        <!-- KAMERA VE NFC SİMÜLATÖRÜ JAVASCRIPT KODLARI -->
+        <script>
+            // Python'dan (Donanımdan) gelen kart şifrelerini anlık dinler
+            const sse = new EventSource('/api/bekleyen_kart_stream');
+            sse.onmessage = function (event) {
+                const gelen_uid = event.data.trim();
+                if (gelen_uid) {
+                    document.getElementById('nfc_uid_input').value = gelen_uid;
 
-
-                let kayitVideoStream = null;
-        let kayitFaceMesh = null;
-        let kayitMpCamera = null;
-        let kayitCanliMi = false; 
-        let kayitGozKapali = false;
-
-        function hesaplaEAR(goz) {
-            const dikey1 = Math.hypot(goz[1].x - goz[5].x, goz[1].y - goz[5].y);
-            const dikey2 = Math.hypot(goz[2].x - goz[4].x, goz[2].y - goz[4].y);
-            const yatay = Math.hypot(goz[0].x - goz[3].x, goz[0].y - goz[3].y);
-            return (dikey1 + dikey2) / (2.0 * yatay);
-        }
-
-        function initKayitFaceMesh() {
-            if(kayitFaceMesh) return; 
-            kayitFaceMesh = new FaceMesh({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
-            }});
-            kayitFaceMesh.setOptions({
-                maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
-            });
-            kayitFaceMesh.onResults(onKayitResults);
-        }
-
-        function onKayitResults(results) {
-            if (kayitCanliMi) return; 
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                const landmarks = results.multiFaceLandmarks[0];
-                // Sağ ve sol göz koordinatları
-                const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
-                const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
-                
-                const ortalamaEAR = (hesaplaEAR(solGoz) + hesaplaEAR(sagGoz)) / 2;
-                
-                if (ortalamaEAR < 0.22) { 
-                    kayitGozKapali = true; 
-                } else if (kayitGozKapali && ortalamaEAR > 0.25) {
-                    kayitCanliMi = true; 
-                    document.getElementById('yuz_cercevesi_kayit').style.borderColor = "#0f0";
-                    document.getElementById('canlilik_uyari_kayit').innerHTML = "✅ Harika! Fotoğraf çekildi!";
-                    document.getElementById('canlilik_uyari_kayit').style.color = "#0f0";
-                    
-                    // Göz tam açık çıksın diye çok ufak (200ms) bekletip çekiyoruz
-                    setTimeout(otomatikFotografCek, 200); 
+                    // Başarılı olduğunu belirten ufak görsel efekt
+                    const btn = document.querySelector('.btn-nfc');
+                    btn.innerHTML = "✅ Okundu!";
+                    btn.style.background = "#0f0";
+                    btn.style.color = "#000";
                 }
-            }
-        }
-
-        function kamerayiAc() {
-            document.getElementById('btn_cek').style.display = "none";
-            const kameraAlani = document.getElementById('canli_kamera_alani');
-            const uyari = document.getElementById('canlilik_uyari_kayit');
-            const video = document.getElementById('videoStreamKayit');
-            
-            kameraAlani.style.display = "block";
-            uyari.style.display = "block";
-            uyari.innerHTML = "🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!";
-            uyari.style.color = "#ffaa00";
-            document.getElementById('yuz_cercevesi_kayit').style.borderColor = "rgba(0, 255, 0, 0.7)";
-            
-            kayitCanliMi = false;
-            kayitGozKapali = false; 
-            initKayitFaceMesh();
-            
-            navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-            .then(stream => {
-                kayitVideoStream = stream;
-                video.srcObject = stream;
-                
-                if(kayitMpCamera) { kayitMpCamera.stop(); }
-                kayitMpCamera = new Camera(video, {
-                    onFrame: async () => { await kayitFaceMesh.send({image: video}); },
-                    width: 640, height: 480
-                });
-                kayitMpCamera.start();
-            })
-            .catch(err => {
-                console.error("Kamera hatası:", err);
-                alert("Kameraya erişilemedi!");
-                document.getElementById('btn_cek').style.display = "block";
-            });
-        }
-
-        function otomatikFotografCek() {
-            const video = document.getElementById('videoStreamKayit');
-            const canvas = document.getElementById('canvasKayit');
-            const ctx = canvas.getContext('2d');
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            
-            document.getElementById('foto_onizleme').src = dataUrl;
-            document.getElementById('foto_onizleme').style.display = "block";
-            document.getElementById('fotograf_base64').value = dataUrl;
-            
-            kapatKayitKamera();
-            document.getElementById('btn_yeniden').style.display = "block";
-        }
-        
-        function kapatKayitKamera() {
-            document.getElementById('canli_kamera_alani').style.display = "none";
-            document.getElementById('canlilik_uyari_kayit').style.display = "none";
-            if(kayitMpCamera) { kayitMpCamera.stop(); }
-            if(kayitVideoStream) {
-                kayitVideoStream.getTracks().forEach(track => track.stop());
-                kayitVideoStream = null;
-            }
-        }
-
-        function fotografSifirla() {
-            document.getElementById('foto_onizleme').style.display = "none";
-            document.getElementById('foto_onizleme').src = "";
-            document.getElementById('fotograf_base64').value = "";
-            document.getElementById('btn_yeniden').style.display = "none";
-            
-            kamerayiAc(); // Yeniden çeke basınca doğrudan canlı kamerayı başlat!
-        }
-
-
-        function yetkiDegistir(uid, yeniDurumCheck) {
-            const yeniDurumInt = yeniDurumCheck ? 1 : 0;
-            const yaziSpan = document.getElementById('yetki_yazisi_' + uid);
-            
-            yaziSpan.innerHTML = "İşleniyor...";
-            yaziSpan.style.color = "#ffaa00";
-
-            fetch('/api/yetki_degistir', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({uid: uid, durum: yeniDurumInt})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.durum === "BASARILI") {
-                    if(yeniDurumCheck) {
-                        yaziSpan.innerHTML = "Aktif";
-                        // Artık class üzerinden ilerliyoruz
-                        yaziSpan.className = "yazi-aktif"; 
-                        yaziSpan.style.color = ""; // style color'u sıfırla ki class çalışsın
-                    } else {
-                        yaziSpan.innerHTML = "Pasif";
-                        yaziSpan.className = "yazi-pasif";
-                        yaziSpan.style.color = "";
-                    }
-                } else {
-                    alert("Yetki değiştirilemedi!");
-                    window.location.reload(); 
-                }
-            })
-            .catch(error => {
-                console.error(error);
-                alert("Bağlantı hatası!");
-                window.location.reload();
-            });
-        }
-
-        const filtreFormu=document.querySelector('.filter-panel');
-        if(filtreFormu){
-            const formElemanlari=filtreFormu.querySelectorAll('input,select');
-
-            const filtreButonu=filtreFormu.querySelector(".btn-filter");
-            if(filtreButonu) filtreButonu.style.display='none';
-
-            let zamanlayici;
-            const anlikFiltrele=function(){
-                clearTimeout(zamanlayici);
-                zamanlayici=setTimeout(()=>{
-                    const formData=new FormData(filtreFormu);
-                    const params=new URLSearchParams(formData);
-                    const url=filtreFormu.action + "?" + params.toString();
-
-                    fetch(url).then(response=>response.text())
-                    .then(html=>{
-                        const parser=new DOMParser();
-                        const doc=parser.parseFromString(html,'text/html');
-                        const yeniTabloGovdesi=doc.querySelector('.users-table tbody').innerHTML;
-                        document.querySelector('.users-table tbody').innerHTML=yeniTabloGovdesi;
-                    });
-                }, 200);
             };
 
-            formElemanlari.forEach(eleman=>{
-                eleman.addEventListener('input',anlikFiltrele);
-                eleman.addEventListener('change',anlikFiltrele);
-            });
 
-            filtreFormu.addEventListener('submit',function(e){
-                e.preventDefault();
-            });
-        }
-    </script>
+            let kayitVideoStream = null;
+            let kayitFaceMesh = null;
+            let kayitMpCamera = null;
+            let kayitCanliMi = false;
+            let kayitGozKapali = false;
+
+            function hesaplaEAR(goz) {
+                const dikey1 = Math.hypot(goz[1].x - goz[5].x, goz[1].y - goz[5].y);
+                const dikey2 = Math.hypot(goz[2].x - goz[4].x, goz[2].y - goz[4].y);
+                const yatay = Math.hypot(goz[0].x - goz[3].x, goz[0].y - goz[3].y);
+                return (dikey1 + dikey2) / (2.0 * yatay);
+            }
+
+            function initKayitFaceMesh() {
+                if (kayitFaceMesh) return;
+                kayitFaceMesh = new FaceMesh({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                    }
+                });
+                kayitFaceMesh.setOptions({
+                    maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5
+                });
+                kayitFaceMesh.onResults(onKayitResults);
+            }
+
+            function onKayitResults(results) {
+                if (kayitCanliMi) return;
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    const landmarks = results.multiFaceLandmarks[0];
+                    // Sağ ve sol göz koordinatları
+                    const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
+                    const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
+
+                    const ortalamaEAR = (hesaplaEAR(solGoz) + hesaplaEAR(sagGoz)) / 2;
+
+                    if (ortalamaEAR < 0.22) {
+                        kayitGozKapali = true;
+                    } else if (kayitGozKapali && ortalamaEAR > 0.25) {
+                        kayitCanliMi = true;
+                        document.getElementById('yuz_cercevesi_kayit').style.borderColor = "#0f0";
+                        document.getElementById('canlilik_uyari_kayit').innerHTML = "✅ Harika! Fotoğraf çekildi!";
+                        document.getElementById('canlilik_uyari_kayit').style.color = "#0f0";
+
+                        // Göz tam açık çıksın diye çok ufak (200ms) bekletip çekiyoruz
+                        setTimeout(otomatikFotografCek, 200);
+                    }
+                }
+            }
+
+            function kamerayiAc() {
+                document.getElementById('btn_cek').style.display = "none";
+                const kameraAlani = document.getElementById('canli_kamera_alani');
+                const uyari = document.getElementById('canlilik_uyari_kayit');
+                const video = document.getElementById('videoStreamKayit');
+
+                kameraAlani.style.display = "block";
+                uyari.style.display = "block";
+                uyari.innerHTML = "🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!";
+                uyari.style.color = "#ffaa00";
+                document.getElementById('yuz_cercevesi_kayit').style.borderColor = "rgba(0, 255, 0, 0.7)";
+
+                kayitCanliMi = false;
+                kayitGozKapali = false;
+                initKayitFaceMesh();
+
+                navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+                    .then(stream => {
+                        kayitVideoStream = stream;
+                        video.srcObject = stream;
+
+                        if (kayitMpCamera) { kayitMpCamera.stop(); }
+                        kayitMpCamera = new Camera(video, {
+                            onFrame: async () => { await kayitFaceMesh.send({ image: video }); },
+                            width: 640, height: 480
+                        });
+                        kayitMpCamera.start();
+                    })
+                    .catch(err => {
+                        console.error("Kamera hatası:", err);
+                        alert("Kameraya erişilemedi!");
+                        document.getElementById('btn_cek').style.display = "block";
+                    });
+            }
+
+            function otomatikFotografCek() {
+                const video = document.getElementById('videoStreamKayit');
+                const canvas = document.getElementById('canvasKayit');
+                const ctx = canvas.getContext('2d');
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+                document.getElementById('foto_onizleme').src = dataUrl;
+                document.getElementById('foto_onizleme').style.display = "block";
+                document.getElementById('fotograf_base64').value = dataUrl;
+
+                kapatKayitKamera();
+                document.getElementById('btn_yeniden').style.display = "block";
+            }
+
+            function kapatKayitKamera() {
+                document.getElementById('canli_kamera_alani').style.display = "none";
+                document.getElementById('canlilik_uyari_kayit').style.display = "none";
+                if (kayitMpCamera) { kayitMpCamera.stop(); }
+                if (kayitVideoStream) {
+                    kayitVideoStream.getTracks().forEach(track => track.stop());
+                    kayitVideoStream = null;
+                }
+            }
+
+            function fotografSifirla() {
+                document.getElementById('foto_onizleme').style.display = "none";
+                document.getElementById('foto_onizleme').src = "";
+                document.getElementById('fotograf_base64').value = "";
+                document.getElementById('btn_yeniden').style.display = "none";
+
+                kamerayiAc(); // Yeniden çeke basınca doğrudan canlı kamerayı başlat!
+            }
+
+
+            function yetkiDegistir(uid, yeniDurumCheck) {
+                const yeniDurumInt = yeniDurumCheck ? 1 : 0;
+                const yaziSpan = document.getElementById('yetki_yazisi_' + uid);
+
+                yaziSpan.innerHTML = "İşleniyor...";
+                yaziSpan.style.color = "#ffaa00";
+
+                fetch('/api/yetki_degistir', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uid: uid, durum: yeniDurumInt })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.durum === "BASARILI") {
+                            if (yeniDurumCheck) {
+                                yaziSpan.innerHTML = "Aktif";
+                                // Artık class üzerinden ilerliyoruz
+                                yaziSpan.className = "yazi-aktif";
+                                yaziSpan.style.color = ""; // style color'u sıfırla ki class çalışsın
+                            } else {
+                                yaziSpan.innerHTML = "Pasif";
+                                yaziSpan.className = "yazi-pasif";
+                                yaziSpan.style.color = "";
+                            }
+                        } else {
+                            alert("Yetki değiştirilemedi!");
+                            window.location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        console.error(error);
+                        alert("Bağlantı hatası!");
+                        window.location.reload();
+                    });
+            }
+
+            const filtreFormu = document.querySelector('.filter-panel');
+            if (filtreFormu) {
+                const formElemanlari = filtreFormu.querySelectorAll('input,select');
+
+                const filtreButonu = filtreFormu.querySelector(".btn-filter");
+                if (filtreButonu) filtreButonu.style.display = 'none';
+
+                let zamanlayici;
+                const anlikFiltrele = function () {
+                    clearTimeout(zamanlayici);
+                    zamanlayici = setTimeout(() => {
+                        const formData = new FormData(filtreFormu);
+                        const params = new URLSearchParams(formData);
+                        const url = filtreFormu.action + "?" + params.toString();
+
+                        fetch(url).then(response => response.text())
+                            .then(html => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                const yeniTabloGovdesi = doc.querySelector('.users-table tbody').innerHTML;
+                                document.querySelector('.users-table tbody').innerHTML = yeniTabloGovdesi;
+                            });
+                    }, 200);
+                };
+
+                formElemanlari.forEach(eleman => {
+                    eleman.addEventListener('input', anlikFiltrele);
+                    eleman.addEventListener('change', anlikFiltrele);
+                });
+
+                filtreFormu.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                });
+            }
+        </script>
 </body>
+
 </html>

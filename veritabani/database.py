@@ -28,6 +28,7 @@ def tablolari_olustur():
         ad_soyad TEXT NOT NULL,
         nfc_uid TEXT NOT NULL UNIQUE,
         aktif_mi INTEGER Default 1,
+        rol TEXT DEFAULT 'PERSONEL',
         yuz_fotograf_yolu TEXT,
         kayit_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
@@ -40,20 +41,24 @@ def tablolari_olustur():
         olay_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
         
     ''')
+    try:
+     imlec.execute("ALTER TABLE kullanicilar ADD COLUMN rol TEXT DEFAULT 'PERSONEL'")
+    except sqlite3.OperationalError:
+        pass
 
     baglanti.commit()
     baglanti.close()
     print("veritabanı ve tablolar başarıyla kuruldu")
 
-def kullanici_ekle(ad_soyad, nfc_uid, yuz_fotograf_yolu=""):
+def kullanici_ekle(ad_soyad, nfc_uid, yuz_fotograf_yolu="", rol="PERSONEL"):
     """Sisteme yeni bir kart ve kulanıcı kaydeder."""
     try: 
         baglanti=veritabani_baglantisi_al()
         imlec=baglanti.cursor()
         imlec.execute('''
-        INSERT INTO kullanicilar (ad_soyad, nfc_uid, yuz_fotograf_yolu, kayit_tarihi)
-        VALUES(?,?,?, datetime('now', 'localtime'))
-        ''',(ad_soyad, nfc_uid, yuz_fotograf_yolu))
+        INSERT INTO kullanicilar (ad_soyad, nfc_uid, yuz_fotograf_yolu,rol, kayit_tarihi)
+        VALUES(?,?,?,?, datetime('now', 'localtime'))
+        ''',(ad_soyad, nfc_uid, yuz_fotograf_yolu,rol))
 
         baglanti.commit()
         print(f"Başarılı: '{ad_soyad}' sisteme eklendi.")
@@ -144,11 +149,11 @@ def kullanici_getir(kullanici_id):
     baglanti.close()
     return dict(kisi) if kisi else None
 
-def kullanici_guncelle(kullanici_id, ad_soyad, nfc_uid):
+def kullanici_guncelle(kullanici_id, ad_soyad, nfc_uid, rol="PERSONEL"):
     try:
         baglanti=veritabani_baglantisi_al()
         imlec=baglanti.cursor()
-        imlec.execute('''UPDATE kullanicilar SET ad_soyad =?, nfc_uid =? WHERE id=?''',(ad_soyad,nfc_uid,kullanici_id))
+        imlec.execute('''UPDATE kullanicilar SET ad_soyad =?, nfc_uid =? ,rol=? WHERE id=?''',(ad_soyad,nfc_uid,rol,kullanici_id))
         baglanti.commit()
         return True, "Kullanıcı başarıyla güncellendi"
     except sqlite3.IntegrityError:
