@@ -4,3 +4,4 @@ face-recognition
 Pillow
 python-dotenv
 Flask
+pyserial

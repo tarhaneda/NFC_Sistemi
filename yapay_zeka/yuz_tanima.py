@@ -41,13 +41,14 @@ def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
             
     if eslesme_basarili:
         ust, sag, alt, sol = hedef_konum
-        cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 255, 0), 3)
-        cv2.rectangle(kamera_karesi, (sol, alt - 35), (sag, alt), (0, 255, 0), cv2.FILLED)
-        cv2.putText(kamera_karesi, "ONAYLANDI", (sol + 6, alt - 6), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
+        
+        cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 255, 0), 3) # Sadece çerçeve
+        cv2.putText(kamera_karesi, "", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 255, 0), 2) # Yazı köşede
         return True, "Doğrulama başarılı.", kamera_karesi
+
     else:
         ust, sag, alt, sol = anlik_yuz_konumlari[0]
-        cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 0, 255), 3)
-        cv2.rectangle(kamera_karesi, (sol, alt - 35), (sag, alt), (0, 0, 255), cv2.FILLED)
-        cv2.putText(kamera_karesi, "YABANCI", (sol + 6, alt - 6), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
+        cv2.rectangle(kamera_karesi, (sol, ust), (sag, alt), (0, 0, 255), 3) # Kırmızı çerçeve
+        cv2.putText(kamera_karesi, "", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 0, 255), 2) # Yazı köşede
+
         return False, "Yüz eşleşmedi (Yabancı)", kamera_karesi

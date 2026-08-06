@@ -237,10 +237,11 @@
                     
                     <div class="form-group">
                         <label>NFC Kart Şifresi (UID):</label>
-                        <div class="nfc-group">
-                            <input type="text" id="nfc_uid_input" name="nfc_uid" placeholder="Kart okutulduğunda otomatik dolacak..." required>
-                            <button type="button" class="btn-nfc" onclick="sanalNfcOku()">NFC Cihazından Oku</button>
+                                                <div class="nfc-group">
+                            <input type="text" id="nfc_uid_input" name="nfc_uid" placeholder="Kart bekleniyor..." required readonly>
+                            <button type="button" class="btn-nfc" style="background: #222; cursor: default;">📡 Kartınızı Okutun</button>
                         </div>
+
                     </div>
 
                                         <div class="camera-section">
@@ -372,12 +373,21 @@
 
     <!-- KAMERA VE NFC SİMÜLATÖRÜ JAVASCRIPT KODLARI -->
     <script>
-        function sanalNfcOku() {
-            let uid = prompt("Lütfen test için cihaza okutulmuş gibi örnek bir NFC Şifresi girin:", "1A2B3C4D");
-            if(uid) {
-                document.getElementById('nfc_uid_input').value = uid.toUpperCase();
+               // Python'dan (Donanımdan) gelen kart şifrelerini anlık dinler
+        const sse = new EventSource('/api/bekleyen_kart_stream');
+        sse.onmessage = function(event) {
+            const gelen_uid = event.data.trim();
+            if(gelen_uid) {
+                document.getElementById('nfc_uid_input').value = gelen_uid;
+                
+                // Başarılı olduğunu belirten ufak görsel efekt
+                const btn = document.querySelector('.btn-nfc');
+                btn.innerHTML = "✅ Okundu!";
+                btn.style.background = "#0f0";
+                btn.style.color = "#000";
             }
-        }
+        };
+
 
                 let kayitVideoStream = null;
         let kayitFaceMesh = null;

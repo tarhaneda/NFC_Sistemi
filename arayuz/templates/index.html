@@ -66,10 +66,17 @@
                 Fiziksel NFC modülü bağlanana kadar (Aşama 5), sisteme eklediğiniz bir personelin kart şifresini aşağıya yazarak kapıdan geçiş testleri yapabilirsiniz.
             </p>
             
-            <div style="max-width: 400px; margin: 0 auto; display: flex; gap: 10px;">
-                <input type="text" id="sanal_nfc_uid" placeholder="Örn: 9A8B7C6D" style="flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #0f0; background: #111; color: white;">
-                <button onclick="kartKontrol()" class="glow-on-hover" style="padding: 12px 20px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer; background: #0f0; color: #000;">Sanal Kartı Okut</button>
+                    <div class="glass-effect" style="padding: 20px; text-align: center;">
+            <div class="section-title">Kapı Kontrol Merkezi (Canlı)</div>
+            
+            <p style="color: #0f0; font-weight: bold; font-size: 1.2em; margin-bottom: 20px;" id="nfc_durum">
+                📡 Lütfen Kapıdaki Okuyucuya Kartınızı Okutun...
+            </p>
+            
+            <div style="max-width: 400px; margin: 0 auto; display: flex; gap: 10px; justify-content: center;">
+                <button onclick="misafirkapiac()" class="glow-on-hover" style="padding: 12px 20px; border-radius: 5px; font-weight: bold; border: none; cursor: pointer; background: #f00; color: #fff;">🚨 Misafir İçin Kapıyı Aç (Manuel)</button>
             </div>
+
 
             <!-- Sonuçların gösterileceği alan -->
             <div id="islem_sonucu" style="margin-top: 25px; padding: 15px; border-radius: 8px; display: none; font-size: 1.1em;"></div>
@@ -99,7 +106,27 @@
         
     </div>
 <script>
-            let aktifUid = "";
+        let aktifUid = "";
+        
+        const sse=new EventSource('/api/bekleyen_kart_stream');
+        sse.onmessage=function(event){
+            const gelen_uid=event.data.trim();
+            if(gelen_uid){
+                 document.getElementById('nfc_durum').innerHTML = "✅ Kart Okundu! Kimlik Doğrulanıyor...";
+                document.getElementById('nfc_durum').style.color = "#0ff";
+                kartKontrol(gelen_uid);
+            }
+        };
+
+        function misafirkapiac(){
+            if(confirm("Misafir geçişi için kapı manuel olarak açılacak Onaylıyor musunuz?")){
+                fetch('/kapi_ac', {method: 'POST'})
+                .then(respone=>{
+                    alert("Kapı başarıyla açıldı");
+                });
+            }
+
+        }
         let kalanDeneme = 3;
         let videoStream = null;
         
@@ -126,7 +153,7 @@
             faceMesh.onResults(onResults);
         }
 
-             function onResults(results) {
+        function onResults(results) {
             if (canliMi) return; 
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const landmarks = results.multiFaceLandmarks[0];
@@ -161,10 +188,8 @@
         }
 
 
-        function kartKontrol() {
-            const uid = document.getElementById('sanal_nfc_uid').value.trim();
-            if(!uid) { alert("Lütfen bir UID girin!"); return; }
-
+        function kartKontrol(uid) {
+            
             const sonucDiv = document.getElementById('islem_sonucu');
             const kameraAlani = document.getElementById('kamera_alani');
             const fotoAlani = document.getElementById('foto_alani');
@@ -343,7 +368,7 @@
             setTimeout(() => {
                 fotoAlani.style.display = "none";
                 document.getElementById('islem_sonucu').style.display = "none";
-                document.getElementById('sanal_nfc_uid').value = "";
+                document.getElementById('nfc_durum').innerHTML="Lütfen Kapıdaki Okuyucuya Kartınızı Okutun...";
             }, 5000);
         }
 

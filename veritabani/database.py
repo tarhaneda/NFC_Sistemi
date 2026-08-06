@@ -9,9 +9,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import telegram_logger
 
 DB_yolu=os.path.join(os.path.dirname(__file__), "kapi_sistemi.db")
+import threading 
+db_kilit=threading.Lock()
 
 def veritabani_baglantisi_al():
-    baglanti=sqlite3.connect(DB_yolu)
+    baglanti=sqlite3.connect(DB_yolu, check_same_thread=False)
     baglanti.row_factory=sqlite3.Row
     return baglanti
     
@@ -80,7 +82,7 @@ def formatli_mesaj_olustur(olay_detayi, durum):
 
     if durum=="BAŞARILI_GİRİŞ":
         kisi=olay_detayi.replace("giriş yaptı", "")
-        mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Kapı Açıldı / Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
+        mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
     elif durum == "YETKİSİZ_GİRİŞ_DENEMESİ":
         mesaj = f"👤 Kişi: {olay_detayi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ (Yetkisi Dondurulmuş Kart!)"
     elif durum == "SİSTEM_AYARI":  
@@ -92,14 +94,17 @@ def formatli_mesaj_olustur(olay_detayi, durum):
 
 def log_kaydet(olay_detayi, durum, kamera_fotograf_yolu=""):
     """Sistemdeki olayları 'kayitlar' tablosuna kaydeder."""
-    baglanti=veritabani_baglantisi_al()
-    imlec=baglanti.cursor()
-    imlec.execute('''
-    INSERT INTO kayitlar(olay_detayi, durum, kamera_fotograf_yolu,olay_tarihi)
-    VALUES(?,?,?,datetime('now','localtime'))
-    ''',(olay_detayi, durum, kamera_fotograf_yolu))
-    baglanti.commit()
-    baglanti.close()
+    #iki thread aynı anda gelğrse biri diğerini bekler
+    with db_kilit:
+        baglanti=veritabani_baglantisi_al()
+        imlec=baglanti.cursor()
+        imlec.execute('''
+        INSERT INTO kayitlar(olay_detayi, durum, kamera_fotograf_yolu,olay_tarihi)
+        VALUES(?,?,?,datetime('now','localtime'))
+        ''',(olay_detayi, durum, kamera_fotograf_yolu))
+        baglanti.commit()
+        baglanti.close()
+
     sik_mesaj = formatli_mesaj_olustur(olay_detayi, durum)
     
     try:

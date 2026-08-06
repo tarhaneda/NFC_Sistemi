@@ -14,6 +14,11 @@ import base64
 import re
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import threading 
+import serial 
+import time 
+from queue import Queue, Empty 
+from flask import Response 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from yapay_zeka import yuz_tanima as yz
@@ -23,6 +28,77 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "super_gizli_guvenlik_anahtari"
+
+class NFCTracker:
+    def __init__(self,port,baud_rate):
+        self.port=port
+        self.baud_rate=baud_rate 
+        self.seri_port=None 
+        self.is_running=False 
+        self.card_queue=Queue()
+
+    def baglan(self):
+        try:
+            self.seri_port = serial.Serial()
+            self.seri_port.port = self.port
+            self.seri_port.baudrate = self.baud_rate
+            self.seri_port.timeout = 1
+            self.seri_port.open()
+            
+            # NodeMCU Otomatik Uyandırma (Sanal RST Tuşuna Basma) Ritüeli
+            self.seri_port.setDTR(False)
+            self.seri_port.setRTS(True)
+            time.sleep(0.1)
+            self.seri_port.setDTR(False)
+            self.seri_port.setRTS(False)
+            time.sleep(1.5) # Kartın kendine gelip uyanması için 1.5 saniye bekle
+            
+            self.is_running = True
+            print(f"\n[SİSTEM] Başarılı: {self.port} portuna bağlanıldı!\n")
+            db.log_kaydet(f"Donanım (NodeMCU) {self.port} üzerinden bağlandı.", "SİSTEM_AYARI")
+            return True
+            
+        except serial.SerialException as e:
+            print(f"\n[UYARI] Seri port açılamadı! Hata: {e}\n")
+            db.log_kaydet("Donanım Başlatılamadı! Lütfen USB'yi kontrol edin.", "SİSTEM_AYARI")
+            return False
+
+
+    
+    def dinle(self):
+        baglanti_koptu_mu=False
+        while self.is_running and self.seri_port and self.seri_port.is_open:
+            try: 
+                satir=self.seri_port.readline().decode('utf-8',errors='ignore').strip()
+                if satir.startswith("NFC_READ:"):
+                    uid=satir.replace("NFC_READ:","").strip()
+                    if uid:
+                        self.card_queue.put(uid)
+                        print(f"\n[DONANIM] Kart Okundu: {uid}")
+                        baglanti_koptu_mu=False
+            
+            except (serial.SerialException, OSError) as e:
+                if not baglanti_koptu_mu:
+                    db.log_kaydet("USB Kablosu ÇEkildi/ Donanım Koptu", "SİSTEM_AYARI")
+                    baglanti_koptu_mu=True
+                self.is_running=False 
+                break 
+
+    def baslat(self): 
+        if self.baglan():
+            threading.Thread(target=self.dinle, daemon=True).start()
+
+    def motor_ac(self):
+        if self.seri_port and self.seri_port.is_open:
+            try:
+               self.seri_port.write(b"MOTOR_AC\n")
+               print("\n[DONANIM] KAPI AÇMA SİNYALİ GÖNDERİLDİ\n")
+            except:
+                pass 
+
+nfc=NFCTracker("COM5", 115200)
+nfc.baslat()
+
 
 SISTEM_SIFRESI = "5252"
 
@@ -42,8 +118,11 @@ def temiz_dosya_adi(isim, nfc_uid):
     """Kullanıcının yazdığı isimden (örn: Mustafa Ceceli) harika bir dosya ismi (mustafaceceli_111.jpg) üretir"""
     ceviriler = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosuCGIOSU")
     isim = isim.translate(ceviriler).lower()
+
     
     isim = re.sub(r'[^a-z0-9]', '', isim)
+    nfc_uid = nfc_uid.replace(":", "")
+
     return f"{isim}_{nfc_uid}.jpg"
 
 
@@ -302,6 +381,18 @@ def loglar():
     
     return render_template('loglar.html', kayitlar=kayitlar, su_anki_sayfa=sayfa_no, toplam_sayfa=toplam_sayfa, secili_durum=secili_durum, baslangic=baslangic_tarihi, bitis=bitis_tarihi)
 
+@app.route('/api/bekleyen_kart_stream')
+def bekleyen_kart_stream():
+    def event_stream():
+        while True:
+            try:
+                uid=nfc.card_queue.get(timeout=1)
+                yield f"data: {uid}\n\n"
+            except Empty:
+                yield ": ping\n\n"
+    
+    return Response(event_stream(), mimetype="text/event-stream")
+
 
 @app.route('/api/kart_kontrol', methods=['POST'])
 def kart_kontrol():
@@ -349,7 +440,12 @@ def yuz_kontrol():
         resim_b64_out=base64.b64encode(buffer).decode('utf-8')
     
         if dogrulandi_mi:
-            db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ")
+            os.makedirs("log_resimleri", exist_ok=True)
+            temiz_uid = nfc_uid.replace(":", "")
+            basarili_foto_yolu = f"log_resimleri/basarili_{temiz_uid}_{int(time.time())}.jpg"
+            cv2.imwrite(basarili_foto_yolu, islenmis_kare)
+            db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ", basarili_foto_yolu)
+            nfc.motor_ac()
             return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}! Kapı açıldı.", "foto": resim_b64_out})
         else:
             return jsonify({"durum": "HATA", "mesaj": f"Eşleşme Başarısız: {mesaj}", "foto": resim_b64_out}) 
@@ -374,7 +470,8 @@ def kart_bloke_et():
                 fotograf_b64 = fotograf_b64.split(",")[1]
             try:
                 resim_verisi = base64.b64decode(fotograf_b64)
-                ihlal_foto_yolu = f"log_resimleri/bloke_{nfc_uid}.jpg"
+                temiz_uid = nfc_uid.replace(":", "")
+                ihlal_foto_yolu = f"log_resimleri/bloke_{temiz_uid}.jpg"
                 with open(ihlal_foto_yolu, "wb") as f:
                     f.write(resim_verisi)
             except:
@@ -383,16 +480,13 @@ def kart_bloke_et():
         db.log_kaydet(f"{kullanici['ad_soyad']} kartı BLOKE edildi (3 Hata)!", "YETKİSİZ_GİRİŞ_DENEMESİ", ihlal_foto_yolu)
         return jsonify({"durum": "BASARILI", "mesaj": "Güvenlik İhlali: Kartınız bloke edildi!"})
     return jsonify({"durum": "HATA", "mesaj": "Kart bulunamadı."})
-
-    
-    
-
         
 
 
 @app.route('/kapi_ac', methods=['POST'])
 def kapi_ac():
     print("KAPI MANUEL OLARAK AÇILDI!")
+    nfc.motor_ac()
     db.log_kaydet("Manuel butonla kapı açıldı", "BAŞARILI_GİRİŞ")
     return "OK"
 
