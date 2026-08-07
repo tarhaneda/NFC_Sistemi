@@ -1,9 +1,12 @@
+from cv2 import cvtColor
 import face_recognition
 import cv2
 import os
 
 # YAPAY ZEKA HAFIZASI (Önbellek)
 Hafiza_Cache = {}
+
+yuz_dedektoru=cv2.CascadeClassifier(cv2.data.haarcascades+ 'haarcascade_frontalface_default.xml')
 
 def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
     if not os.path.exists(beklenen_kisi_foto_yolu):
@@ -12,17 +15,23 @@ def yuz_dogrula(kamera_karesi, beklenen_kisi_foto_yolu):
     # HIZ İÇİN %75 KÜÇÜLTME EKLENDİ (Performansı 4-5 kat artırır!)
     kucuk_kare = cv2.resize(kamera_karesi, (0, 0), fx=0.25, fy=0.25)
     rgb_kare = cv2.cvtColor(kucuk_kare, cv2.COLOR_BGR2RGB)
+    gri_kare=cvtColor(kucuk_kare,cv2.COLOR_BGR2GRAY)
+
+    bulunan_yuzler=yuz_dedektoru.detectMultiScale(gri_kare,scaleFactor=1.1,minNeighbors=5,minSize=(20,20))
+
+    anlik_yuz_konumlari_kucuk=[]
+    for(x,y,w,h) in bulunan_yuzler:
+        anlik_yuz_konumlari_kucuk.append((y,x+w,y+h,x))
+
+    anlik_yuz_kodlari=face_recognition.face_encodings(rgb_kare,anlik_yuz_konumlari_kucuk, model="small")
     
-    anlik_yuz_konumlari_kucuk = face_recognition.face_locations(rgb_kare)
-    anlik_yuz_kodlari = face_recognition.face_encodings(rgb_kare, anlik_yuz_konumlari_kucuk)
-        
     if len(anlik_yuz_kodlari) == 0:
         return False, "Kamerada net bir yüz bulunamadı", kamera_karesi
     
     # KAYITLI FOTOĞRAFI HAFIZADAN GETİR (Sistemi uçuran kısım)
     if beklenen_kisi_foto_yolu not in Hafiza_Cache:
         kayitli_resim = face_recognition.load_image_file(beklenen_kisi_foto_yolu)
-        kayitli_yuz_kodlari = face_recognition.face_encodings(kayitli_resim)
+        kayitli_yuz_kodlari = face_recognition.face_encodings(kayitli_resim, model="small")
         
         if len(kayitli_yuz_kodlari) == 0:
             return False, "Kayıtlı yüz tespit edilemedi", kamera_karesi

@@ -150,6 +150,9 @@
             let mpCamera = null;
             let canliMi = false;
             let gozKapali = false;
+            let yuzHizalandi=false;
+            let onAnalizBasladi=false;
+
 
             function hesaplaEAR(goz) {
                 const dikey1 = Math.hypot(goz[1].x - goz[5].x, goz[1].y - goz[5].y);
@@ -172,38 +175,59 @@
             }
 
             function onResults(results) {
-                if (canliMi) return;
-                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                    const landmarks = results.multiFaceLandmarks[0];
-                    const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
-                    const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
-
-                    const solEAR = hesaplaEAR(solGoz);
-                    const sagEAR = hesaplaEAR(sagGoz);
-                    const ortalamaEAR = (solEAR + sagEAR) / 2;
-
-                    if (ortalamaEAR < 0.22) {
-                        // GÖZ KAPANDI
-                        gozKapali = true;
-                    } else if (gozKapali && ortalamaEAR > 0.25) {
-                        // GÖZ GERİ AÇILDI! Tam bu milisaniyede OTOMATİK ÇEKİM yapıyoruz!
-                        canliMi = true;
-
-                        const btn = document.getElementById('btn_yuzu_tara');
-                        btn.innerHTML = "📸 Otomatik Çekildi!";
-                        btn.style.background = "#0f0";
-                        btn.style.color = "#000";
-
-                        const uyari = document.getElementById('canlilik_uyari');
-                        uyari.innerHTML = "✅ Canlılık doğrulandı, yüz taranıyor...";
-                        uyari.style.color = "#0f0";
-                        document.getElementById('yuz_cercevesi').style.borderColor = "#0f0";
-
-                        // Kullanıcının butona basmasını beklemeden kamerayı biz ateşliyoruz!
-                        yuzuTara();
-                    }
-                }
+    if (canliMi) return;
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const landmarks = results.multiFaceLandmarks[0];
+        
+        // --- 1. OVAL ÇERÇEVEYE HİZALAMA KONTROLÜ ---
+        if (!yuzHizalandi) {
+            const xNoktalari = landmarks.map(p => p.x);
+            const yNoktalari = landmarks.map(p => p.y);
+            const minX = Math.min(...xNoktalari);
+            const maxX = Math.max(...xNoktalari);
+            const minY = Math.min(...yNoktalari);
+            const maxY = Math.max(...yNoktalari);
+            
+            // Yüz ortalama olarak ovalin içinde mi kontrol et
+            if (minX > 0.20 && maxX < 0.80 && minY > 0.05 && Math.abs(maxY - minY) > 0.3) {
+                yuzHizalandi = true;
+                document.getElementById('yuz_cercevesi').style.borderColor = "#0ff"; // Çerçeveyi Turkuaz yap
+                document.getElementById('canlilik_uyari').innerHTML = "✅ Yüz Hizalandı. Şimdi Lütfen GÖZ KIRPIN!";
+                document.getElementById('canlilik_uyari').style.color = "#0ff";
+                
+                // ARKA PLAN İŞLEMİNİ GİZLİCE BAŞLAT!
+                onAnalizGonder();
+            } else {
+                document.getElementById('canlilik_uyari').innerHTML = "⚠️ Lütfen yüzünüzü tam olarak oval çerçeveye oturtun!";
+                document.getElementById('canlilik_uyari').style.color = "#ffaa00";
+                return; // Hizalanana kadar göz kırpmayı kontrol etme!
             }
+        }
+        
+        // --- 2. CANLILIK (GÖZ KIRPMA) KONTROLÜ ---
+        const solGoz = [landmarks[33], landmarks[160], landmarks[158], landmarks[133], landmarks[153], landmarks[144]];
+        const sagGoz = [landmarks[362], landmarks[385], landmarks[387], landmarks[263], landmarks[373], landmarks[380]];
+
+        const solEAR = hesaplaEAR(solGoz);
+        const sagEAR = hesaplaEAR(sagGoz);
+        const ortalamaEAR = (solEAR + sagEAR) / 2;
+
+        if (ortalamaEAR < 0.22) {
+            gozKapali = true;
+        } else if (gozKapali && ortalamaEAR > 0.25) {
+            canliMi = true;
+            
+            const btn = document.getElementById('btn_yuzu_tara');
+            btn.innerHTML = "✅ Canlılık Onaylandı!";
+            btn.style.background = "#0f0";
+            btn.style.color = "#000";
+
+            // Artık fotoğraf çekme işlevi yok, sadece sonucu getir fonksiyonu var!
+            sonucuSorgula(); 
+        }
+    }
+}
+
 
 
             function kartKontrol(uid) {
@@ -247,6 +271,8 @@
 
                 canliMi = false;
                 gozKapali = false;
+                yuzHizalandi=false;
+                onAnalizBasladi=false;
                 const btn = document.getElementById('btn_yuzu_tara');
                 btn.disabled = true;
                 btn.innerHTML = "❌ Göz Kırpması Bekleniyor...";
@@ -399,6 +425,74 @@
                     document.getElementById('nfc_durum').innerHTML = "Lütfen Kapıdaki Okuyucuya Kartınızı Okutun...";
                 }, 5000);
             }
+            function onAnalizGonder() {
+    if (onAnalizBasladi) return;
+    onAnalizBasladi = true;
+    
+    const video = document.getElementById('videoStream');
+    const canvas = document.getElementById('canvasFrame');
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    
+    // Görüntüyü gönder ve cevabı HİÇ bekleme!
+    fetch('/api/on_analiz_baslat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: aktifUid, image: dataUrl })
+    });
+}
+
+function sonucuSorgula() {
+    const btn = document.getElementById('btn_yuzu_tara');
+    btn.innerHTML = "⏳ Arka Plan Analizi Bekleniyor...";
+    
+    // Artık resim göndermiyoruz, sadece "Durum nedir?" diye soruyoruz
+    fetch('/api/yuz_kontrol', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid: aktifUid })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const sonucDiv = document.getElementById('islem_sonucu');
+        sonucDiv.style.display = "block";
+        
+        if (data.durum === "BASARILI") {
+            sonucDiv.textContent = "✅ " + data.mesaj;
+            sonucDiv.style.border = "2px solid #0f0";
+            sonucDiv.style.color = "#0f0";
+            kapatKamera();
+            gosterSonuc(data.foto, "#0f0");
+        } else {
+            kalanDeneme--;
+            const uyari = document.getElementById('deneme_uyarisi');
+
+            if (kalanDeneme > 0) {
+                sonucDiv.textContent = "❌ " + data.mesaj;
+                sonucDiv.style.border = "2px solid #ffaa00";
+                sonucDiv.style.color = "#ffaa00";
+
+                // Başarısız olursa her şeyi başa sar (Yeniden hizalama iste)
+                canliMi = false;
+                gozKapali = false;
+                yuzHizalandi = false;
+                onAnalizBasladi = false;
+
+                btn.disabled = true;
+                btn.innerHTML = "❌ Lütfen Yüzünüzü Tekrar Hizalayın...";
+                btn.style.background = "#555";
+                btn.style.color = "#aaa";
+                document.getElementById('yuz_cercevesi').style.borderColor = "rgba(0, 255, 0, 0.7)";
+
+                uyari.innerHTML = `Kalan Deneme Hakkı: ${kalanDeneme}`;
+                uyari.style.color = "#ffaa00";
+            } else {
+                kapatKamera();
+                blokeEt(null); // Bloke esnasında artık boş yolluyoruz
+            }
+        }
+    });
+}
+
 
         </script>
 </body>

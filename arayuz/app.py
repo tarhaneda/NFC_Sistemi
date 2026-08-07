@@ -101,6 +101,7 @@ nfc.baslat()
 
 
 SISTEM_SIFRESI = "5252"
+bekleyen_analizler={}
 
 db_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'veritabani', 'kapi_sistemi.db')
 if not os.path.exists(db_yolu):
@@ -430,45 +431,92 @@ def kart_kontrol():
 
     return jsonify ({"durum": "BASARILI", "mesaj": f"Sayın {kullanici['ad_soyad']}, lütfen yüzünüzü kameraya hizalayıp taratın."})
 
+def arka_planda_yuz_tara(uid,fotograf_b64, foto_yolu):
+    try:
+        import numpy as np 
+        if "," in fotograf_b64:
+            fotograf_b64=fotograf_b64.split(",")[1]
+
+        resim_verisi=base64.b64decode(fotograf_b64)
+        nparr=np.frombuffer(resim_verisi,np.uint8)
+        kare=cv2.imdecode(nparr,cv2.IMREAD_COLOR)
+
+        dogrulandi_mi,mesaj,islenmis_kare=yz.yuz_dogrula(kare,foto_yolu)
+
+        bekleyen_analizler[uid]={
+            "durum":"TAMAMLANDI",
+            "dogrulandi_mi": dogrulandi_mi,
+            "mesaj":mesaj,
+            "islenmis_kare":islenmis_kare
+        }
+
+    except Exception as e:
+        bekleyen_analizler[uid]={"durum": "HATA", "mesaj":str(e)}
+
+@app.route('/api/on_analiz_baslat', methods=['POST'])
+def on_analiz_baslat():
+    data=request.json
+    uid=data.get('uid').strip().upper()
+    fotograf_b64=data.get('image')
+    
+    kullanici=db.kart_sorgula(uid)
+    if not kullanici or kullanici['aktif_mi']!=1:
+        return jsonify({"durum": "HATA"})
+
+    foto_yolu=kullanici['yuz_fotograf_yolu']
+
+    bekleyen_analizler[uid]={"durum": "ISLENIYOR"}
+    threading.Thread(target=arka_planda_yuz_tara, args=(uid,fotograf_b64, foto_yolu),daemon=True).start()
+
+    return jsonify({"durum": "BASARILI"})
+
+
+
+
+
 @app.route('/api/yuz_kontrol', methods=['POST'])
 def yuz_kontrol():
     data=request.json
     nfc_uid=data.get('uid').strip().upper()
-    fotograf_b64=data.get('image')
-
+    
     kullanici=db.kart_sorgula(nfc_uid)
     if not kullanici or kullanici['aktif_mi'] != 1:
         return jsonify({"durum": "HATA", "mesaj": "Geçersiz veya yetkisiz kart."})
+    bekleme_suresi=0
+    while bekleme_suresi<30:
+        sonuc=bekleyen_analizler.get(nfc_uid)
+
+        if sonuc and sonuc.get("durum")=="TAMAMLANDI":
+            dogrulandi_mi=sonuc["dogrulandi_mi"]
+            mesaj=sonuc["mesaj"]
+            islenmis_kare_veri=sonuc["islenmis_kare"]
+
+            _,buffer=cv2.imencode('.jpg', islenmis_kare_veri)
+            resim_b64_out=base64.b64encode(buffer).decode('utf-8')
+
+            del bekleyen_analizler[nfc_uid]
+
+            if dogrulandi_mi:
+                os.makedirs("log_resimleri", exist_ok=True)
+                temiz_uid=nfc_uid.replace(":","")
+                basarili_foto_yolu=f"log_resimleri/basarili_{temiz_uid}_{int(time.time())}.jpg"
+                cv2.imwrite(basarili_foto_yolu, islenmis_kare_veri)
+                db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BASARILI_GİRİŞ", basarili_foto_yolu)
+                nfc.motor_ac()
+                return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}!", "foto": resim_b64_out})
+            else:
+                return jsonify({"durum": "HATA", "mesaj": f"Yüz Eşleşmedi: {mesaj}", "foto": resim_b64_out})
         
-    if "," in fotograf_b64:
-        fotograf_b64 = fotograf_b64.split(",")[1]
+        elif sonuc and sonuc.get("durum")=="HATA":
+            del bekleyen_analizler[nfc_uid]
+            return jsonify({"durum": "HATA", "mesaj": f"Yüz Tespiti Hatası: {sonuc['mesaj']}"})
+        
+        time.sleep(0.1)
+        bekleme_suresi+=0.1
 
-    try: 
-        import numpy as np 
-        resim_verisi=base64.b64decode(fotograf_b64)
-        nparr=np.frombuffer(resim_verisi, np.uint8)
-        kare=cv2.imdecode(nparr,cv2.IMREAD_COLOR)
+    return jsonify({"durum": "HATA", "mesaj": "Belirlenen sürede yüz algılanamadı."})
 
-        foto_yolu=kullanici['yuz_fotograf_yolu']
-        dogrulandi_mi, mesaj, islenmis_kare=yz.yuz_dogrula(kare, foto_yolu)
-
-        _,buffer=cv2.imencode('.jpg', islenmis_kare)
-        resim_b64_out=base64.b64encode(buffer).decode('utf-8')
     
-        if dogrulandi_mi:
-            os.makedirs("log_resimleri", exist_ok=True)
-            temiz_uid = nfc_uid.replace(":", "")
-            basarili_foto_yolu = f"log_resimleri/basarili_{temiz_uid}_{int(time.time())}.jpg"
-            cv2.imwrite(basarili_foto_yolu, islenmis_kare)
-            db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ", basarili_foto_yolu)
-            nfc.motor_ac()
-            return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}! Kapı açıldı.", "foto": resim_b64_out})
-        else:
-            return jsonify({"durum": "HATA", "mesaj": f"Eşleşme Başarısız: {mesaj}", "foto": resim_b64_out}) 
-    
-    except Exception as e:
-         return jsonify({"durum": "HATA", "mesaj": "Görüntü işlenemedi."})
-
 @app.route('/api/kart_bloke_et', methods=['POST'])
 def kart_bloke_et():
     data = request.json
