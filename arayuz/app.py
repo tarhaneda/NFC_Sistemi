@@ -1,4 +1,6 @@
 
+
+
 import sys
 import types
 import os
@@ -21,8 +23,10 @@ from queue import Queue, Empty
 from flask import Response 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from veritabani.database import veritabani_baglantisi_al
 from yapay_zeka import yuz_tanima as yz
 from veritabani import database as db
+import telegram_logger
 
 load_dotenv()
 
@@ -74,7 +78,14 @@ class NFCTracker:
                     uid=satir.replace("NFC_READ:","").strip()
                     if uid:
                         self.card_queue.put(uid)
-                        print(f"\n[DONANIM] Kart Okundu: {uid}")
+                        print(f"\n[DONANIM] Giriş Kartı Okundu: {uid}")
+                        baglanti_koptu_mu=False
+
+                elif satir.startswith("NFC_READ_CIKIS"):
+                    uid=satir.replace("NFC_READ_CIKIS:", "").strip()
+                    if uid:
+                        nfc_cikis.card_queue.put(uid);
+                        print("\n[DONANIM] Çıkış Kartı Okundu: ")
                         baglanti_koptu_mu=False
             
             except (serial.SerialException, OSError) as e:
@@ -96,8 +107,13 @@ class NFCTracker:
             except:
                 pass 
 
-nfc=NFCTracker("COM5", 115200)
-nfc.baslat()
+nfc_giris=NFCTracker("COM8", 115200)
+nfc_giris.baslat()
+
+nfc_cikis=NFCTracker("COM_YOK", 115200)
+
+nfc_cikis.motor_ac=nfc_giris.motor_ac
+
 
 
 SISTEM_SIFRESI = "5252"
@@ -391,12 +407,16 @@ def loglar():
 @app.route('/api/bekleyen_kart_stream')
 def bekleyen_kart_stream():
     def event_stream():
-        while True:
-            try:
-                uid=nfc.card_queue.get(timeout=1)
-                yield f"data: {uid}\n\n"
-            except Empty:
-                yield ": ping\n\n"
+        try:
+            while True:
+                try:
+                    uid=nfc_giris.card_queue.get(timeout=1)
+                    yield f"data: {uid}\n\n"
+                except Empty:
+                    yield ": ping\n\n"
+        except GeneratorExit:
+            pass
+            
     
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -414,12 +434,16 @@ def kart_kontrol():
     if kullanici['aktif_mi']==0:
         db.log_kaydet(f"{kullanici['ad_soyad']} pasif kartla girmeye çalıştı!", "YETKİSİZ_GİRİŞ_DENEMESİ")
         return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Sayın {kullanici['ad_soyad']}, yetkiniz dondurulmuş (İşten Ayrılan)."})
+      
+    if kullanici['iceride_mi'] == 1:
+        db.log_kaydet(f"Zaten içeride olan kartla giriş denemesi: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+        return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Sayın {kullanici['ad_soyad']}, sistemde zaten içeride görünüyorsunuz. Lütfen önce çıkış yapın."})
 
     elif kullanici['aktif_mi']==2:
         db.log_kaydet(f"Blokeli kartla giriş denemesi: {nfc_uid}", "YETKİSİZ_GİRİŞ_DENEMESİ")
         return jsonify({"durum": "HATA", "mesaj": "Bu kart şüpheli işlemler sebebiyle BLOKE edilmiştir! Yöneticinizle görüşün."})
 
-        # YENİ EKLENECEK SÜRE KONTROLÜ
+
     if kullanici.get('gecerlilik_tarihi'):
         from datetime import datetime
         gecerlilik = datetime.strptime(kullanici['gecerlilik_tarihi'], '%Y-%m-%d').date()
@@ -429,7 +453,7 @@ def kart_kontrol():
             return jsonify({"durum": "HATA", "mesaj": f"Geçiş Reddedildi! Kartınızın süresi {gecerlilik} tarihinde dolmuş."})
 
 
-    return jsonify ({"durum": "BASARILI", "mesaj": f"Sayın {kullanici['ad_soyad']}, lütfen yüzünüzü kameraya hizalayıp taratın."})
+    return jsonify ({"durum": "BASARILI", "mesaj": f"Sayın {kullanici['ad_soyad']}, lütfen yüzünüzü kameraya hizalayıp taratın.", "rol":kullanici['rol']})
 
 def arka_planda_yuz_tara(uid,fotograf_b64, foto_yolu):
     try:
@@ -501,8 +525,16 @@ def yuz_kontrol():
                 temiz_uid=nfc_uid.replace(":","")
                 basarili_foto_yolu=f"log_resimleri/basarili_{temiz_uid}_{int(time.time())}.jpg"
                 cv2.imwrite(basarili_foto_yolu, islenmis_kare_veri)
-                db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BASARILI_GİRİŞ", basarili_foto_yolu)
-                nfc.motor_ac()
+
+                baglanti = db.veritabani_baglantisi_al()
+                imlec = baglanti.cursor()
+                imlec.execute("UPDATE kullanicilar SET iceride_mi = 1 WHERE id = ?", (kullanici['id'],))
+                baglanti.commit()
+                baglanti.close()
+
+
+                db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ", basarili_foto_yolu)
+                nfc_cikis.motor_ac()
                 return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}!", "foto": resim_b64_out})
             else:
                 return jsonify({"durum": "HATA", "mesaj": f"Yüz Eşleşmedi: {mesaj}", "foto": resim_b64_out})
@@ -552,7 +584,7 @@ def kapi_ac():
     if not session.get('giris_basarili'):
         return jsonify({"durum": "HATA", "mesaj": "Yetkisiz Erişim!"}), 403
     print("KAPI MANUEL OLARAK AÇILDI!")
-    nfc.motor_ac()
+    nfc_cikis.motor_ac()
     db.log_kaydet("Manuel butonla kapı açıldı", "BAŞARILI_GİRİŞ")
     return "OK"
 
@@ -630,6 +662,204 @@ def rapor_indir():
         tarih_metni = f"{baslangic}_{bitis}"
         
     return send_file(output, download_name=f"puantaj_raporu_{tarih_metni}.xlsx", as_attachment=True)
+
+import random  
+aktif_2fa_kodlari={}
+
+import asyncio
+
+@app.route('/api/uzaktan_giris_kod_gonder', methods=['POST'])
+def uzaktan_giris_kod_gonder():
+    data = request.json
+    sifre = data.get('sifre')
+
+    if sifre == SISTEM_SIFRESI:
+        guvenlik_kodu = str(random.randint(100000, 999999))
+        aktif_2fa_kodlari['yonetici'] = guvenlik_kodu
+
+        mesaj = f"🚨 UZAKTAN GİRİŞ DENEMESİ 🚨\nSistem paneline uzaktan giriş yapılmaya çalışılıyor.\n\nOnay Kodunuz: {guvenlik_kodu}"
+        
+        # Asyncio ile asenkron fonksiyonu senkron içinde çalıştırıyoruz
+        asyncio.run(telegram_logger.mesaj_gonder(mesaj))
+        
+        return jsonify({"durum": "BASARILI", "mesaj": "Telegram'a onay kodu gönderildi."})
+    else:
+        db.log_kaydet("Uzaktan giriş: Hatalı sistem şifresi denemesi!", "YETKİSİZ_GİRİŞ_DENEMESİ")
+        return jsonify({"durum": "HATA", "mesaj": "Hatalı Sistem Şifresi!"})
+
+
+@app.route('/api/uzaktan_giris_dogrula', methods=['POST'])
+def uzaktan_giris_dogrula():
+    data = request.json
+    girilen_kod = data.get('kod')
+    
+    beklenen_kod = aktif_2fa_kodlari.get('yonetici')
+    
+    if beklenen_kod and girilen_kod == beklenen_kod:
+        session['giris_basarili'] = True
+        del aktif_2fa_kodlari['yonetici'] # Kullanılan kodu imha et
+        db.log_kaydet("Yönetici Uzaktan Giriş Yaptı (2FA Başarılı)", "SİSTEM_AYARI")
+        return jsonify({"durum": "BASARILI", "url": url_for('dashboard')})
+    else:
+        return jsonify({"durum": "HATA", "mesaj": "Geçersiz veya Süresi Dolmuş Kod!"})
+
+
+
+@app.route('/api/sekme_kapandi', methods=['POST'])
+def sekme_kapandi():
+    """Tarayıcı sekmesi kapandığı an (Ping atmadan) tek seferlik sinyal gelir."""
+    print("\n[BİLGİ] Yönetici sekmesi kapatıldı!")
+    
+    return "OK", 200
+
+@app.route('/api/sunucu_durumu')
+def sunucu_durumu():
+    """Sunucudan tarayıcıya 'Ben Hayattayım' diyen açık hat (SSE)."""
+    def generate():
+        try:
+            while True:
+                yield "data: online\n\n"
+                time.sleep(1)  # 15 YERİNE 1 YAPTIK! İşçi hemen uyanıp kontrol etsin.
+        except GeneratorExit:
+            # Kullanıcı sayfadan çıktığında işçiyi güvenlice öldür
+            pass
+            
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/kisi_loglari',methods=['GET'])
+def kisi_loglari():
+    if not session.get('giris_basarili'):
+        return redirect(url_for('login'))
+
+    baglanti=db.veritabani_baglantisi_al()
+    imlec=baglanti.cursor()
+
+    imlec.execute("SELECT id,ad_soyad FROM kullanicilar ORDER BY ad_soyad")
+    kullanicilar=imlec.fetchall()
+
+    secili_kisi_id=request.args.get('kisi_id')
+    secili_tarih=request.args.get('tarih')
+
+    import datetime
+    if not secili_tarih:
+        secili_tarih=datetime.date.today().strftime('%Y-%m-%d')
+
+    loglar=[]
+    secili_kisi_adi=""
+    genel_loglar=[]
+
+    if secili_kisi_id:
+        imlec.execute("SELECT ad_soyad FROM kullanicilar WHERE id= ?",(secili_kisi_id,))
+        kisi=imlec.fetchone()
+        if kisi: 
+            secili_kisi_adi=kisi['ad_soyad']
+        
+        sorgu="""
+        SELECT olay_detayi, durum, olay_tarihi
+        FROM kayitlar
+        WHERE olay_detayi LIKE ?
+        AND olay_tarihi LIKE ?
+        AND durum In ('BAŞARILI_GİRİŞ', 'BAŞARILI_ÇIKIŞ')
+        ORDER BY olay_tarihi ASC"""
+
+        imlec.execute(sorgu,(f"{secili_kisi_adi}%", f"{secili_tarih}%"))
+        ham_loglar=imlec.fetchall()
+
+        for log in ham_loglar:
+            tarih_obj = datetime.datetime.strptime(log['olay_tarihi'], '%Y-%m-%d %H:%M:%S')
+            saat_dakika = tarih_obj.strftime('%H:%M')
+            tip = "giris" if "GİRİŞ" in log['durum'] else "cikis"
+            loglar.append({"saat": saat_dakika, "tip": tip})
+            
+    else:
+        # YENİ: KİŞİ SEÇİLMEDİYSE O GÜNÜN TABLOSUNU HAZIRLA
+        sorgu="""
+        SELECT olay_detayi, durum, olay_tarihi
+        FROM kayitlar
+        WHERE olay_tarihi LIKE ?
+        AND durum In ('BAŞARILI_GİRİŞ', 'BAŞARILI_ÇIKIŞ')
+        ORDER BY olay_tarihi DESC"""
+        imlec.execute(sorgu, (f"{secili_tarih}%",))
+        ham_genel = imlec.fetchall()
+        
+        # İsimleri Link (Tıklanabilir) Yapmak İçin ID'leri Eşleştiriyoruz
+        for log in ham_genel:
+            saf_isim = log['olay_detayi']
+            kisi_id_eslesme = None
+            for k in kullanicilar:
+                if k['ad_soyad'] in log['olay_detayi']:
+                    kisi_id_eslesme = k['id']
+                    saf_isim = k['ad_soyad']
+                    break
+            
+            genel_loglar.append({
+                "saat": log['olay_tarihi'].split(' ')[1][:5],
+                "isim": saf_isim,
+                "durum": log['durum'],
+                "kisi_id": kisi_id_eslesme
+            })
+
+    baglanti.close()
+    
+    return render_template('kisi_loglari.html', 
+                           kullanicilar=kullanicilar, 
+                           secili_kisi_id=int(secili_kisi_id) if secili_kisi_id else None,
+                           secili_kisi_adi=secili_kisi_adi,
+                           secili_tarih=secili_tarih,
+                           loglar=loglar,
+                           genel_loglar=genel_loglar)
+
+
+
+        
+
+
+   
+
+    
+    
+    
+
+from queue import Empty 
+
+def otonom_cikis_dinle():
+    while True:
+        try: 
+            uid=nfc_cikis.card_queue.get(timeout=1)
+
+            kullanici=db.kart_sorgula(uid)
+            if not kullanici:
+                db.log_kaydet(f"Yabancı kart çıkış denemesi: {uid}", "YABANCI_KART")
+                continue
+
+            if kullanici['aktif_mi']!=1:
+                db.log_kaydet(f"Blokeli/Pasif Kart Çıkışı: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+                continue
+
+            if kullanici['iceride_mi']==0:
+                db.log_kaydet(f"Dışarıda görünen kartla çıkış denemesi: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+                continue
+
+            baglanti=db.veritabani_baglantisi_al()
+            imlec=baglanti.cursor()
+            imlec.execute("UPDATE kullanicilar SET iceride_mi= 0 WHERE id= ?", (kullanici['id'],))
+            baglanti.commit()
+            baglanti.close()
+
+            nfc_cikis.motor_ac()
+            db.log_kaydet(f"{kullanici['ad_soyad']} kartı ile çıkış yapıldı", "BAŞARILI_ÇIKIŞ")
+            print(f"\n[SİSTEM] {kullanici['ad_soyad']} OTONOM ÇIKIŞ YAPTI.\n")
+
+        except Empty:
+            pass
+        except Exception as e:
+            print(f"[HATA] Çıkış Dinleyicisi: {e}")
+
+threading.Thread(target=otonom_cikis_dinle,daemon=True).start()
+            
+            
+
+
 
 
 

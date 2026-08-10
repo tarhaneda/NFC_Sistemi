@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Güvenlik Sistemi{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="dashboard-body">
+
+    <!-- Üst Menü (Tüm Sayfalar Buradan Beslenecek) -->
+    <nav class="top-nav glass-effect">
+        <div class="nav-logo">🛡️ NFC & YÜZ TANIMA SİSTEMİ</div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="{% if active_page == 'dashboard' %}active{% endif %}">Ana Panel</a>
+            <a href="{{ url_for('kullanici_yonetimi') }}" class="{% if active_page == 'kullanici_yonetimi' %}active{% endif %}">Kullanıcı Yönetimi</a>
+            <a href="{{ url_for('loglar') }}" class="{% if active_page == 'loglar' %}active{% endif %}">Sistem Logları</a>
+            <a href="{{ url_for('kisi_loglari') }}" class="{% if active_page == 'kisi_loglari' %}active{% endif %}">Kişi Logları</a>
+            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 15px;">Çıkış Yap</a>
+        </div>
+    </nav>
+
+    <!-- Diğer sayfaların kendi özel içerikleri buraya gömülecek -->
+    {% block content %}{% endblock %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

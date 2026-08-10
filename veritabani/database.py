@@ -34,11 +34,6 @@ def tablolari_olustur():
         yuz_fotograf_yolu TEXT,
         kayit_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
 
-    try: 
-        imlec.execute("ALTER TABLE kullanicilar ADD COLUMN gecerlilik_tarihi DATE DEFAULT NULL")
-    except sqlite3.OperationalError:
-        pass
-
     imlec.execute('''
     CREATE TABLE IF NOT EXISTS kayitlar(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,8 +88,16 @@ def formatli_mesaj_olustur(olay_detayi, durum):
     zaman=datetime.datetime.now().strftime("%d-%m-%y %H:%M")
 
     if durum=="BAŞARILI_GİRİŞ":
-        kisi=olay_detayi.replace("giriş yaptı", "")
-        mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
+        if "Manuel" in olay_detayi:
+            mesaj=f"🚪 Sistem: Manuel Kapı Açılışı\n⏰ Zaman: {zaman}\n🔄 İşlem: Uzaktan Tetikleme\n✅ Durum: BAŞARILI"
+        else:
+            kisi=olay_detayi.replace("giriş yaptı", "")
+            mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
+        
+    elif durum == "BAŞARILI_ÇIKIŞ":
+        kisi = olay_detayi.replace(" kartı ile çıkış yapıldı", "")
+        mesaj = f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🚪 İşlem: Çıkış Yapıldı\n✅ Durum: BAŞARILI (Otonom Çıkış)"
+
     elif durum == "YETKİSİZ_GİRİŞ_DENEMESİ":
         mesaj = f"👤 Kişi: {olay_detayi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ (Yetkisi Dondurulmuş Kart!)"
     elif durum == "SİSTEM_AYARI":  
@@ -103,6 +106,15 @@ def formatli_mesaj_olustur(olay_detayi, durum):
         mesaj = f"👤 Kişi: Bilinmeyen Kullanıcı\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ ({olay_detayi})"
         
     return mesaj
+
+def telegram_arkaplan_gonder(kamera_fotograf_yolu, sik_mesaj):
+    try:
+        if kamera_fotograf_yolu != "":
+            asyncio.run(telegram_logger.fotograf_gonder(kamera_fotograf_yolu, sik_mesaj))
+        else:
+            asyncio.run(telegram_logger.mesaj_gonder(sik_mesaj))
+    except Exception as e:
+        print("Telegram'a atılırken hata oluştu (İnternet yok vb.)")
 
 def log_kaydet(olay_detayi, durum, kamera_fotograf_yolu=""):
     """Sistemdeki olayları 'kayitlar' tablosuna kaydeder."""
@@ -119,13 +131,9 @@ def log_kaydet(olay_detayi, durum, kamera_fotograf_yolu=""):
 
     sik_mesaj = formatli_mesaj_olustur(olay_detayi, durum)
     
-    try:
-        if kamera_fotograf_yolu != "":
-            asyncio.run(telegram_logger.fotograf_gonder(kamera_fotograf_yolu, sik_mesaj))
-        else:
-            asyncio.run(telegram_logger.mesaj_gonder(sik_mesaj))
-    except Exception as e:
-        print("Telegram'a atılırken hata oluştu (İnternet yok vb.)")
+    threading.Thread(target=telegram_arkaplan_gonder,args=(kamera_fotograf_yolu,sik_mesaj),daemon=True).start()
+    
+   
 
 def kullanici_yetki_guncelle(nfc_uid, yeni_durum):
     

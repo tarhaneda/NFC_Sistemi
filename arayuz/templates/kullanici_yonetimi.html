@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-<html lang="tr">
+{% set active_page = 'kullanici_yonetimi' %}
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kullanıcı Yönetimi - Güvenlik Sistemi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block title %}Kullanıcı Yönetimi - Güvenlik Sistemi{% endblock %}
+
+{% block extra_head %}
+
     <style>
         .form-container {
             max-width: 600px;
@@ -238,21 +237,12 @@
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-</head>
+{% endblock %}
 
-<body class="dashboard-body">
+{% block content %}
 
-    <!-- Üst Menü -->
-    <nav class="top-nav glass-effect">
-        <div class="nav-logo">🛡️ NFC & YÜZ TANIMA SİSTEMİ</div>
-        <div class="nav-links">
-            <a href="{{ url_for('dashboard') }}">Ana Panel</a>
-            <a href="{{ url_for('kullanici_yonetimi') }}" class="active">Kullanıcı Yönetimi</a>
-            <a href="{{ url_for('loglar') }}">Sistem Logları</a>
-            <a href="{{ url_for('logout') }}" style="color: #ff4444; margin-left: 15px;">Çıkış Yap 🚪</a>
 
-        </div>
-    </nav>
+
 
     <div class="main-content" style="display: block;">
 
@@ -274,7 +264,7 @@
                     <form method="POST" action="{{ url_for('kullanici_yonetimi') }}">
                         <div class="form-group">
                             <label>Ad Soyad:</label>
-                            <input type="text" name="ad_soyad" placeholder="Örn: Eda Yılmaz" required>
+                            <input type="text" name="ad_soyad" placeholder="Ad-Soyad Giriniz..." required>
                         </div>
 
                         <div class="form-group">
@@ -290,8 +280,8 @@
                                             <div class="form-group">
                         <label>Yetki Seviyesi (Rol):</label>
                         <select name="rol" style="width: 100%; padding: 12px; background: #111; border: 1px solid rgba(0, 255, 0, 0.5); color: #fff; border-radius: 5px;">
-                            <option value="PERSONEL">Personel (Sadece Kapıdan Geçer)</option>
-                            <option value="YONETICI">Yönetici (Arayüze Girebilir)</option>
+                            <option value="PERSONEL">Personel</option>
+                            <option value="YONETICI">Yönetici</option>
                         </select>
                     </div>
                                         <div class="form-group">
@@ -303,8 +293,7 @@
 
 
                         <div class="camera-section">
-                            <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma (Vesikalık)
-                                Kaydı:</label>
+                            <label style="color: #0f0; margin-bottom: 10px; display: block;">Yüz Tanıma Kaydı:</label>
 
                             <!-- YENİ: Canlı Video Alanı -->
                             <div id="canli_kamera_alani"
@@ -319,7 +308,7 @@
 
                             <p id="canlilik_uyari_kayit"
                                 style="color: #ffaa00; margin-bottom: 10px; font-weight: bold; font-size: 1.1em; display: none;">
-                                🤖 Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!
+                                Fotoğraf çekmek için çerçeveye bakıp GÖZ KIRPIN!
                             </p>
 
                             <img id="foto_onizleme" src="">
@@ -438,7 +427,8 @@
                                 <th>Ad Soyad</th>
                                 <th>NFC Şifresi</th>
                                 <th>Kayıt Tarihi</th>
-                                <th>Geçiş Yetkisi (Aç/Kapa)</th>
+                                <th>Son Kullanım Tarihi</th>
+                                <th>Geçiş Yetkisi</th>
                                 <th>İşlem</th>
                             </tr>
                         </thead>
@@ -449,6 +439,7 @@
                                 <td>{{ kisi.ad_soyad }}</td>
                                 <td style="font-family: monospace; color: #0ff;">{{ kisi.nfc_uid }}</td>
                                 <td style="color: #aaa;">{{ kisi.kayit_tarihi }}</td>
+                                <td style="color: #ffaa00; font-weight: bold;">{{ kisi.gecerlilik_tarihi if kisi.gecerlilik_tarihi else '-' }}</td>
                                 <td>
                                     <!-- YETKİ ŞALTERİ -->
                                     <label class="switch">
@@ -467,14 +458,13 @@
                                 </td>
                                 <td>
                                     <a href="{{ url_for('kullanici_duzenle', id=kisi.id) }}"
-                                        style="background: #ffaa00; color: #000; padding: 6px 12px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s; display: inline-block;">✏️
-                                        Düzenle</a>
+                                        style="background: #ffaa00; color: #000; padding: 6px 12px; text-decoration: none; border-radius: 5px; font-weight: bold; transition: 0.3s; display: inline-block;">Düzenle</a>
                                 </td>
 
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="5" style="text-align: center; color: #ccc; padding: 20px;">Bu filtreye
+                                <td colspan="7" style="text-align: center; color: #ccc; padding: 20px;">Bu filtreye
                                     uygun kayıtlı personel bulunamadı.</td>
                             </tr>
                             {% endfor %}
@@ -698,7 +688,43 @@
                     e.preventDefault();
                 });
             }
-        </script>
-</body>
+            
+         let sayfaDegisiyor = false; // Yönlendirme (Sayfa geçişi) kontrolcüsü
+        // 1. Sen sekmeyi kapattığın veya sayfa değiştirdiğin an tetiklenir
+        window.addEventListener('beforeunload', function () {
+            sayfaDegisiyor = true; // Sayfa değiştiğini işaretle
+            navigator.sendBeacon('/api/sekme_kapandi'); // Sunucuya haber ver
+        });
+        // 2. Sunucu kapanırsa (CTRL+C) tetiklenen açık hat
+        const evtSource = new EventSource("/api/sunucu_durumu");
+        evtSource.onerror = function() {
+            // SADECE sayfa değiştirilmiyorsa (Gerçekten sunucu çökmüşse) sekmeyi kapat!
+            if (!sayfaDegisiyor) {
+                evtSource.close();
+                document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20%; font-family:sans-serif;'>Sunucu Kapatıldı!<br>Bağlantı Koptu.</h1>";
+                window.open('', '_self', ''); 
+                window.close();
+            }
+        };
+                // 1. Sen sekmeyi kapattığın veya sayfa değiştirdiğin an tetiklenir
+        window.addEventListener('beforeunload', function () {
+            sayfaDegisiyor = true; 
+            
+            // GÜÇLENDİRME: Sistemdeki tüm açık hatları ve kameraları zorla temizle!
+            if (typeof evtSource !== 'undefined') { evtSource.close(); }
+            if (typeof sse !== 'undefined') { sse.close(); } // NFC Dinleyicisini de Kapat!
+            
+            // Kameraların donanımını serbest bırak
+            const kamera1 = document.getElementById("canli_kamera_alani");
+            if (kamera1) kamera1.src = ""; 
+            const kamera2 = document.getElementById("videoStreamKayit");
+            if (kamera2 && kamera2.srcObject) {
+                kamera2.srcObject.getTracks().forEach(track => track.stop());
+                kamera2.srcObject = null;
+            }
+            
+            navigator.sendBeacon('/api/sekme_kapandi'); 
+        });
 
-</html>
+        </script>
+{% endblock %}

@@ -1,0 +1,284 @@
+{% set active_page = 'kisi_loglari' %}
+{% extends "base.html" %}
+{% block title %}Sistem Logları - Güvenlik Sistemi{% endblock %}
+{% block extra_head %}
+
+    <style>
+                /* KULLANICI LİSTESİ STİLLERİ (TABLO) */
+        .users-table-container {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: white;
+            font-size: 1.1em;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .users-table th,
+        .users-table td {
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        .users-table th {
+            background: rgba(0, 255, 0, 0.1);
+            color: #0f0;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .users-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .filter-panel {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            border: 1px solid rgba(0,255,0,0.2);
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .filter-group label { color: #0f0; font-weight: bold; }
+        .filter-group select, .filter-group input {
+            padding: 12px; background: #111; border: 1px solid rgba(0, 255, 0, 0.5);
+            color: white; border-radius: 5px; outline: none; cursor: pointer;
+        }
+        .btn-filter {
+            background: #0ff; color: #000; padding: 12px 20px;
+            border-radius: 5px; font-weight: bold; border: none; cursor: pointer; transition: 0.3s;
+        }
+        .btn-filter:hover { background: #0cc; }
+        
+        /* TIMELINE (GANTT) TASARIMI */
+        .timeline-wrapper {
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 30px; margin-top: 20px;
+        }
+        .timeline-ruler {
+            display: flex; justify-content: space-between; color: #888;
+            font-size: 0.8em; margin-bottom: 10px; padding: 0 10px; font-family: monospace;
+        }
+        .timeline-track {
+            height: 50px; background: rgba(255,255,255,0.05); border-radius: 8px;
+            position: relative; border: 1px solid rgba(0,255,0,0.1); overflow: hidden;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+                .timeline-block {
+            height: 100%; position: absolute; border-radius: 5px; 
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.85em; overflow: hidden;
+            white-space: nowrap; transition: 0.3s;
+        }
+        .timeline-block:hover { box-shadow: 0 0 15px #fff; cursor: crosshair; z-index: 10; }
+        
+        /* İÇERİDE (YEŞİL) VE DIŞARIDA (KIRMIZI) RENKLERİ */
+        .timeline-block.inside { background: linear-gradient(90deg, rgba(0,255,0,0.6), rgba(0,255,0,0.8)); color: black; box-shadow: 0 0 10px rgba(0,255,0,0.3); }
+        .timeline-block.outside { background: linear-gradient(90deg, rgba(255,0,0,0.5), rgba(255,0,0,0.8)); color: white; box-shadow: 0 0 10px rgba(255,0,0,0.3); }
+        
+        /* Hâlâ devam eden (Canlı) bloğun görünümü */
+        .timeline-block.active { opacity: 0.9; border: 2px dashed rgba(255,255,255,0.5); }
+
+        
+        .kisi-baslik { color: white; font-size: 1.5em; margin-bottom: 5px; }
+        .tarih-baslik { color: #0f0; font-size: 1em; margin-bottom: 20px; }
+        
+        .no-data { text-align: center; color: #888; font-size: 1.2em; padding: 40px; }
+    </style>
+{% endblock %}
+
+{% block content %}
+
+
+    
+
+    <div class="main-content" style="display: block;">
+        <div class="glass-effect" style="padding: 20px;">
+            <div class="section-title">Kişi Bazlı Mesai Takibi</div>
+            
+            <form method="GET" action="{{ url_for('kisi_loglari') }}" class="filter-panel">
+                <div class="filter-group">
+                    <label>Personel Seçin:</label>
+                    <select name="kisi_id">
+                        <option value="">-- Kişi Seçin --</option>
+                        {% for kisi in kullanicilar %}
+                        <option value="{{ kisi.id }}" {% if secili_kisi_id == kisi.id %}selected{% endif %}>{{ kisi.ad_soyad }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tarih Seçin:</label>
+                    <input type="date" name="tarih" value="{{ secili_tarih }}" onclick="this.showPicker()">
+                </div>
+                <button type="submit" class="btn-filter">Grafiği Çiz</button>
+            </form>
+
+            {% if secili_kisi_id %}
+            <div class="timeline-wrapper">
+                <h2 class="kisi-baslik">{{ secili_kisi_adi }}</h2>
+                <div class="tarih-baslik">📅 {{ secili_tarih }} Tarihli Hareketleri</div>
+                
+                {% if loglar %}
+                <div class="timeline-ruler">
+                    <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span>
+                    <span>16:00</span><span>20:00</span><span>23:59</span>
+                </div>
+                <div class="timeline-track" id="timeline-track">
+                    <!-- Javascript ile doldurulacak -->
+                </div>
+                               <div style="display:flex; gap:15px; margin-top:15px; font-size:0.9em; color:#ccc;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <div style="width:15px; height:15px; background:rgba(0,255,0,0.8); border-radius:3px;"></div> GİRİŞ (İçeride)
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <div style="width:15px; height:15px; background:rgba(255,0,0,0.8); border-radius:3px;"></div> ÇIKIŞ (Dışarıda)
+                    </div>
+                </div>
+
+                {% else %}
+                <div class="no-data">Seçilen tarihte giriş-çıkış kaydı bulunamadı.</div>
+                {% endif %}
+            </div>
+                       {% else %}
+            <!-- YENİ: GENEL GÜNLÜK TABLO VE TIKLANABİLİR İSİMLER -->
+            <div class="users-table-container" style="margin-top:30px;">
+                <h3 style="color:#0ff; text-align:center; margin-bottom:20px;">📋 {{ secili_tarih }} Tarihli Genel Personel Hareketleri</h3>
+                
+                {% if genel_loglar %}
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Saat</th>
+                            <th>Personel Adı (Grafik İçin Tıklayın)</th>
+                            <th>İşlem Durumu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in genel_loglar %}
+                        <tr>
+                            <td style="font-family: monospace; font-size:1.1em;">{{ log.saat }}</td>
+                            <td>
+                                {% if log.kisi_id %}
+                                    <a href="{{ url_for('kisi_loglari', kisi_id=log.kisi_id, tarih=secili_tarih) }}" 
+                                       style="color: #0ff; text-decoration: none; font-weight: bold; border-bottom: 1px dashed #0ff; transition: 0.2s;">
+                                       {{ log.isim }} 📊
+                                    </a>
+                                {% else %}
+                                    {{ log.isim }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if 'GİRİŞ' in log.durum %}
+                                    <span style="color: #0f0; font-weight: bold;">🟩 GİRİŞ YAPTI</span>
+                                {% else %}
+                                    <span style="color: #ffaa00; font-weight: bold;">🟧 ÇIKIŞ YAPTI</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="no-data">Bu tarihte sisteme hiçbir giriş-çıkış yapılmamış.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            
+        </div>
+    </div>
+
+       <script>
+        // Süslü parantezler içine alıyoruz ki VS Code başka sayfalarla karıştırmasın
+        {
+           
+            const kisiLogVerisi = JSON.parse('{{ loglar | tojson | safe }}');
+            const track = document.getElementById('timeline-track');
+            
+            function timeToPercent(timeStr) {
+                let parts = timeStr.split(':');
+                let totalMins = (parseInt(parts[0]) * 60) + parseInt(parts[1]);
+                return (totalMins / 1440) * 100;
+            }
+            if (track && kisiLogVerisi.length > 0) {
+                let lastTime = '00:00';
+                let isInside = false; // Güne dışarıda (Kırmızı) başlar
+                
+                kisiLogVerisi.forEach(log => {
+                    let start = timeToPercent(lastTime);
+                    let end = timeToPercent(log.saat);
+                    
+                    if (log.tip === 'giris') {
+                        // DIŞARI BLOĞU
+                        if (end > start) {
+                            let block = document.createElement('div');
+                            block.className = 'timeline-block outside';
+                            block.style.left = start + '%';
+                            block.style.width = (end - start) + '%';
+                            block.innerHTML = lastTime + ' - ' + log.saat;
+                            // Fareyle üzerine gelince çıkacak yazı:
+                            block.title = 'Dışarıda Geçen Süre: ' + lastTime + ' ile ' + log.saat + ' arası'; 
+                            track.appendChild(block);
+                        }
+                        lastTime = log.saat;
+                        isInside = true; 
+                    } 
+                    else if (log.tip === 'cikis' && isInside) {
+                        // İÇERİ BLOĞU
+                        if (end > start) {
+                            let block = document.createElement('div');
+                            block.className = 'timeline-block inside';
+                            block.style.left = start + '%';
+                            block.style.width = (end - start) + '%';
+                            block.innerHTML = lastTime + ' - ' + log.saat;
+                            // Fareyle üzerine gelince çıkacak yazı:
+                            block.title = 'İçeride (Mesai): ' + lastTime + ' ile ' + log.saat + ' arası';
+                            track.appendChild(block);
+                        }
+                        lastTime = log.saat;
+                        isInside = false; 
+                    }
+                });
+                // GÜNÜN GERİ KALANINI ÇİZME MANTIĞI
+                let now = new Date();
+                let selectedDate = '{{ secili_tarih }}'; 
+                let todayStr = now.toISOString().split('T')[0];
+                
+                let endString = (selectedDate === todayStr || selectedDate === '') 
+                    ? now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') 
+                    : '23:59';
+                
+                let start = timeToPercent(lastTime);
+                let end = timeToPercent(endString);
+                
+                if (end > start) {
+                    let block = document.createElement('div');
+                    block.className = isInside ? 'timeline-block inside active' : 'timeline-block outside active';
+                    block.style.left = start + '%';
+                    block.style.width = (end - start) + '%';
+                    
+                    let yazi = lastTime + (selectedDate === todayStr || selectedDate === '' ? ' - Hâlâ...' : ' - 23:59');
+                    block.innerHTML = yazi;
+                    
+                    // Canlı blok için fareyle üzerine gelince çıkacak yazı:
+                    block.title = isInside ? ('Aktif Mesai Başlangıcı: ' + lastTime) : ('Son Çıkış: ' + lastTime + ' (Şu an dışarıda)');
+                    
+                    track.appendChild(block);
+                }
+            }
+        }
+    </script>
+
+{% endblock %}
+
