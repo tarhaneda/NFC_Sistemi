@@ -148,7 +148,7 @@
                         document.getElementById('canlilik_uyari').innerHTML = "✅ Yüz Hizalandı. Şimdi Lütfen GÖZ KIRPIN!";
                         document.getElementById('canlilik_uyari').style.color = "#0ff";
                         
-                        onAnalizGonder();
+                        
                     } else {
                         document.getElementById('canlilik_uyari').innerHTML = "⚠️ Lütfen yüzünüzü tam olarak oval çerçeveye oturtun!";
                         document.getElementById('canlilik_uyari').style.color = "#ffaa00";
@@ -167,12 +167,13 @@
                     gozKapali = true;
                 } else if (gozKapali && ortalamaEAR > 0.25) {
                     canliMi = true;
+                    clearTimeout(kameraZamanAsimi);
                     
                     const btn = document.getElementById('btn_yuzu_tara');
                     btn.innerHTML = "✅ Canlılık Onaylandı!";
                     btn.style.background = "#0f0";
                     btn.style.color = "#000";
-
+                    onAnalizGonder();
                     sonucuSorgula(); 
                 }
             }
@@ -211,11 +212,20 @@
                     }
                 });
         }
-
+        let kameraZamanAsimi=null;
         function kameraBaslat() {
+            if (kameraZamanAsimi) clearTimeout(kameraZamanAsimi);
+            
+           
+            kameraZamanAsimi = setTimeout(() => {
+                resetArayuz();
+            }, 10000); 
+
             const video = document.getElementById('videoStream');
             const kameraAlani = document.getElementById('kamera_alani');
             const uyari = document.getElementById('deneme_uyarisi');
+
+
 
             canliMi = false;
             gozKapali = false;

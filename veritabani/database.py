@@ -92,20 +92,30 @@ def formatli_mesaj_olustur(olay_detayi, durum):
             mesaj=f"🚪 Sistem: Manuel Kapı Açılışı\n⏰ Zaman: {zaman}\n🔄 İşlem: Uzaktan Tetikleme\n✅ Durum: BAŞARILI"
         else:
             kisi=olay_detayi.replace("giriş yaptı", "")
-            mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
+            mesaj=f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Giriş Yapıldı\n✅ Durum: BAŞARILI (Kart Doğrulandı)"
         
     elif durum == "BAŞARILI_ÇIKIŞ":
         kisi = olay_detayi.replace(" kartı ile çıkış yapıldı", "")
         mesaj = f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🚪 İşlem: Çıkış Yapıldı\n✅ Durum: BAŞARILI (Otonom Çıkış)"
 
     elif durum == "YETKİSİZ_GİRİŞ_DENEMESİ":
-        mesaj = f"👤 Kişi: {olay_detayi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ (Yetkisi Dondurulmuş Kart!)"
+        # Yeni Akıllı Hata Ayrıştırıcı
+        if "Dışarıda görünen" in olay_detayi:
+            kisi = olay_detayi.replace("Dışarıda görünen kartla çıkış denemesi: ", "")
+            mesaj = f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Hatalı Çıkış Denemesi\n❌ Durum: BAŞARISIZ (Kişi sistemde zaten dışarıda!)"
+        elif "Zaten içeride" in olay_detayi:
+            kisi = olay_detayi.replace("Zaten içeride olan kartla giriş denemesi: ", "")
+            mesaj = f"👤 Kişi: {kisi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Hatalı Giriş Denemesi\n❌ Durum: BAŞARISIZ (Kişi sistemde zaten içeride!)"
+        else:
+            mesaj = f"👤 Kişi: {olay_detayi}\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ (Yetkisi Dondurulmuş Kart!)"
+            
     elif durum == "SİSTEM_AYARI":  
         mesaj = f"⚙️ SİSTEM BİLGİSİ\n⏰ Zaman: {zaman}\n🔄 İşlem: Yetki Güncellemesi\nℹ️ Detay: {olay_detayi}"    
     else: # İHLAL_GİRİŞİMİ veya YABANCI_KART
         mesaj = f"👤 Kişi: Bilinmeyen Kullanıcı\n⏰ Zaman: {zaman}\n🔄 İşlem: Geçiş Denemesi\n❌ Durum: BAŞARISIZ ({olay_detayi})"
         
     return mesaj
+
 
 def telegram_arkaplan_gonder(kamera_fotograf_yolu, sik_mesaj):
     try:

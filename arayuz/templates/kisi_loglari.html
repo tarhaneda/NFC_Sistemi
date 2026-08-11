@@ -118,10 +118,18 @@
                     </select>
                 </div>
                 <div class="filter-group">
+                    <label>İşlem Türü:</label>
+                    <select name="islem_turu">
+                        <option value="tumu" {% if secili_islem == 'tumu' %}selected{% endif %}>Tümü (Giriş & Çıkış)</option>
+                        <option value="giris" {% if secili_islem == 'giris' %}selected{% endif %}>Sadece Giriş Yapanlar</option>
+                        <option value="cikis" {% if secili_islem == 'cikis' %}selected{% endif %}>Sadece Çıkış Yapanlar</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label>Tarih Seçin:</label>
                     <input type="date" name="tarih" value="{{ secili_tarih }}" onclick="this.showPicker()">
                 </div>
-                <button type="submit" class="btn-filter">Grafiği Çiz</button>
+                <button type="submit" class="btn-filter">Sonuçları Getir</button>
             </form>
 
             {% if secili_kisi_id %}
@@ -215,41 +223,38 @@
                 let lastTime = '00:00';
                 let isInside = false; // Güne dışarıda (Kırmızı) başlar
                 
-                kisiLogVerisi.forEach(log => {
+                             kisiLogVerisi.forEach(log => {
                     let start = timeToPercent(lastTime);
                     let end = timeToPercent(log.saat);
                     
-                    if (log.tip === 'giris') {
-                        // DIŞARI BLOĞU
-                        if (end > start) {
-                            let block = document.createElement('div');
-                            block.className = 'timeline-block outside';
-                            block.style.left = start + '%';
-                            block.style.width = (end - start) + '%';
-                            block.innerHTML = lastTime + ' - ' + log.saat;
-                            // Fareyle üzerine gelince çıkacak yazı:
-                            block.title = 'Dışarıda Geçen Süre: ' + lastTime + ' ile ' + log.saat + ' arası'; 
-                            track.appendChild(block);
-                        }
-                        lastTime = log.saat;
-                        isInside = true; 
-                    } 
-                    else if (log.tip === 'cikis' && isInside) {
-                        // İÇERİ BLOĞU
-                        if (end > start) {
-                            let block = document.createElement('div');
+                    if (end > start) {
+                        let block = document.createElement('div');
+                        
+                        // Önceki durumumuz neyse ona göre renk çiziyoruz (Olayın ismine göre değil!)
+                        if (isInside) {
                             block.className = 'timeline-block inside';
-                            block.style.left = start + '%';
-                            block.style.width = (end - start) + '%';
-                            block.innerHTML = lastTime + ' - ' + log.saat;
-                            // Fareyle üzerine gelince çıkacak yazı:
                             block.title = 'İçeride (Mesai): ' + lastTime + ' ile ' + log.saat + ' arası';
-                            track.appendChild(block);
+                        } else {
+                            block.className = 'timeline-block outside';
+                            block.title = 'Dışarıda Geçen Süre: ' + lastTime + ' ile ' + log.saat + ' arası'; 
                         }
-                        lastTime = log.saat;
-                        isInside = false; 
+                        
+                        block.style.left = start + '%';
+                        block.style.width = (end - start) + '%';
+                        block.innerHTML = lastTime + ' - ' + log.saat;
+                        track.appendChild(block);
                     }
+                    
+                    // Çizim bittikten sonra YENİ durumu güncelliyoruz
+                    if (log.tip === 'giris') {
+                        isInside = true;
+                    } else if (log.tip === 'cikis') {
+                        isInside = false;
+                    }
+                    
+                    lastTime = log.saat;
                 });
+
                 // GÜNÜN GERİ KALANINI ÇİZME MANTIĞI
                 let now = new Date();
                 let selectedDate = '{{ secili_tarih }}'; 
