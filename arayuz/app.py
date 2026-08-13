@@ -17,16 +17,20 @@ import re
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import threading 
-import serial 
+
 import time 
 from queue import Queue, Empty 
 from flask import Response 
+import socket  
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from veritabani.database import veritabani_baglantisi_al
 from yapay_zeka import yuz_tanima as yz
 from veritabani import database as db
 import telegram_logger
+import requests  
+
+SON_CANLI_BILDIRIM= {"id": 0, "mesaj":"Sistem Başlatıldı"}
 
 load_dotenv()
 
@@ -34,93 +38,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 
-class NFCTracker:
-    def __init__(self,port,baud_rate):
-        self.port=port
-        self.baud_rate=baud_rate 
-        self.seri_port=None 
-        self.is_running=False 
-        self.card_queue = Queue()
-        self.listeners = [] 
-
-    def baglan(self):
-        try:
-            self.seri_port = serial.Serial()
-            self.seri_port.port = self.port
-            self.seri_port.baudrate = self.baud_rate
-            self.seri_port.timeout = 1
-            self.seri_port.open()
-            
-           
-            self.seri_port.setDTR(False)
-            self.seri_port.setRTS(True)
-            time.sleep(0.1)
-            self.seri_port.setDTR(False)
-            self.seri_port.setRTS(False)
-            time.sleep(1.5)
-            
-            self.is_running = True
-            print(f"\n[SİSTEM] Başarılı: {self.port} portuna bağlanıldı!\n")
-            db.log_kaydet(f"Donanım (NodeMCU) {self.port} üzerinden bağlandı.", "SİSTEM_AYARI")
-            return True
-            
-        except serial.SerialException as e:
-            print(f"\n[UYARI] Seri port açılamadı! Hata: {e}\n")
-            db.log_kaydet("Donanım Başlatılamadı! Lütfen USB'yi kontrol edin.", "SİSTEM_AYARI")
-            return False
-
-
-    
-    def dinle(self):
-        baglanti_koptu_mu=False
-        while self.is_running and self.seri_port and self.seri_port.is_open:
-            try: 
-                satir=self.seri_port.readline().decode('utf-8',errors='ignore').strip()
-                if satir.startswith("NFC_READ:"):
-                    uid=satir.replace("NFC_READ:","").strip()
-                    if uid:
-                        for q in self.listeners: 
-                            q.put(uid)
-                        print(f"\n[DONANIM] Giriş Kartı Okundu: {uid}")
-                        baglanti_koptu_mu=False
-
-                elif satir.startswith("NFC_READ_CIKIS"):
-                    uid=satir.replace("NFC_READ_CIKIS:", "").strip()
-                    if uid:
-                        nfc_cikis.card_queue.put(uid)
-                        print("\n[DONANIM] Çıkış Kartı Okundu: ")
-                        baglanti_koptu_mu=False
-            
-            except (serial.SerialException, OSError) as e:
-                if not baglanti_koptu_mu:
-                    db.log_kaydet("USB Kablosu ÇEkildi/ Donanım Koptu", "SİSTEM_AYARI")
-                    baglanti_koptu_mu=True
-                self.is_running=False 
-                break 
-
-    def baslat(self): 
-        if self.baglan():
-            threading.Thread(target=self.dinle, daemon=True).start()
-
-    def motor_ac(self):
-        if self.seri_port and self.seri_port.is_open:
-            try:
-               self.seri_port.write(b"MOTOR_AC\n")
-               self.seri_port.flush()
-               print("\n[DONANIM] KAPI AÇMA SİNYALİ GÖNDERİLDİ\n")
-            except:
-                pass 
-
-nfc_giris=NFCTracker("COM8", 115200)
-nfc_giris.baslat()
-
-nfc_cikis=NFCTracker("COM_YOK", 115200)
-
-nfc_cikis.motor_ac=nfc_giris.motor_ac
 
 
 
-SISTEM_SIFRESI = "5252"
+
+SISTEM_SIFRESI = os.getenv("SISTEM_SIFRESI")
+
 bekleyen_analizler={}
 
 db_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'veritabani', 'kapi_sistemi.db')
@@ -258,7 +181,12 @@ def kullanici_yonetimi():
                            arama_nfc=arama_nfc,
                            baslangic=baslangic,
                            bitis=bitis)
-    
+
+API_SECRET_KEY = os.getenv("API_SECRET_KEY")
+NODEMCU_IP=None
+nfc_arayuz_dinleyicileri = []
+
+
         
 @app.route('/kullanici_duzenle/<int:id>', methods=['GET', 'POST'])
 def kullanici_duzenle(id):
@@ -412,7 +340,7 @@ def loglar():
 def bekleyen_kart_stream():
     def event_stream():
         q = Queue()
-        nfc_giris.listeners.append(q) 
+        nfc_arayuz_dinleyicileri.append(q) 
         try:
             while True:
                 try:
@@ -421,7 +349,8 @@ def bekleyen_kart_stream():
                 except Empty:
                     yield ": ping\n\n"
         except GeneratorExit:
-            nfc_giris.listeners.remove(q) 
+            if q in nfc_arayuz_dinleyicileri:
+                nfc_arayuz_dinleyicileri.remove(q) 
             
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -486,9 +415,7 @@ def arka_planda_yuz_tara(uid,fotograf_b64, foto_yolu):
 @app.route('/api/on_analiz_baslat', methods=['POST'])
 def on_analiz_baslat():
 
-    if request.remote_addr != '127.0.0.1':
-        db.log_kaydet(f"SİBER SALDIRI ENGELLENDİ! Dışarıdan API İsteği: {request.remote_addr}", "YETKİSİZ_GİRİŞ_DENEMESİ")
-        return jsonify({"durum": "HATA", "mesaj": "Erişim Engellendi!"}), 403
+  
     data=request.json
     uid=data.get('uid').strip().upper()
     fotograf_b64=data.get('image')
@@ -531,7 +458,11 @@ def yuz_kontrol():
             del bekleyen_analizler[nfc_uid]
 
             if dogrulandi_mi:
-                nfc_cikis.motor_ac()
+                if NODEMCU_IP:
+                    try:
+                        requests.get(f"http://{NODEMCU_IP}/motoru_ac", timeout=2)
+                    except:
+                        pass
                 os.makedirs("log_resimleri", exist_ok=True)
                 temiz_uid=nfc_uid.replace(":","")
                 basarili_foto_yolu=f"log_resimleri/basarili_{temiz_uid}_{int(time.time())}.jpg"
@@ -545,6 +476,11 @@ def yuz_kontrol():
 
             
                 db.log_kaydet(f"{kullanici['ad_soyad']} giriş yaptı", "BAŞARILI_GİRİŞ", basarili_foto_yolu)
+                global SON_CANLI_BILDIRIM
+                SON_CANLI_BILDIRIM = {
+                    "id": SON_CANLI_BILDIRIM["id"] + 1, 
+                    "mesaj": f"🚪 {kullanici['ad_soyad']} Giriş Yaptı!"
+                } 
                 
                 return jsonify({"durum": "BASARILI", "mesaj": f"Hoş Geldin, {kullanici['ad_soyad']}!", "foto": resim_b64_out})
             else:
@@ -594,7 +530,12 @@ def kart_bloke_et():
 def kapi_ac():
     if not session.get('giris_basarili'):
         return jsonify({"durum": "HATA", "mesaj": "Yetkisiz Erişim!"}), 403
-    nfc_cikis.motor_ac()
+    if NODEMCU_IP:
+        try:
+            requests.get(f"http://{NODEMCU_IP}/motoru_ac", timeout=2)
+        except:
+            pass
+
     print("KAPI MANUEL OLARAK AÇILDI!")
     db.log_kaydet("Manuel butonla kapı açıldı", "BAŞARILI_GİRİŞ")
     return "OK"
@@ -844,64 +785,58 @@ def kisi_loglari():
                            genel_loglar=genel_loglar)
 
 
-
-        
-
-
-   
-
-    
-    
-    
-
 from queue import Empty 
 
-def otonom_cikis_dinle():
-    while True:
-        try: 
-            uid=nfc_cikis.card_queue.get(timeout=1)
+@app.route('/api/donanim_nfc_okundu', methods=['POST'])
+def donanim_nfc_okundu():
+    global NODEMCU_IP 
+    NODEMCU_IP = request.remote_addr
+    data = request.json
 
-            kullanici=db.kart_sorgula(uid)
-            if not kullanici:
-                db.log_kaydet(f"Yabancı kart çıkış denemesi: {uid}", "YABANCI_KART")
-                continue
+    if data.get("api_key") != API_SECRET_KEY:
+        db.log_kaydet("Sahte donanım isteği engellendi!", "YETKİSİZ_GİRİŞ_DENEMESİ")
+        return jsonify({"status": "RED", "mesaj": "Yetkisiz cihaz!"}), 403
 
-            if kullanici['aktif_mi']!=1:
-                db.log_kaydet(f"Blokeli/Pasif Kart Çıkışı: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
-                continue
+    nfc_uid = data.get('uid').strip().upper()
+    kapi_turu = data.get('kapi', 'giris') 
+    
+    kullanici = db.kart_sorgula(nfc_uid)
+    if not kullanici or kullanici['aktif_mi'] != 1:
+        return jsonify({"status": "RED", "mesaj": "Yetkisiz veya yabancı kart!"})
+        
+    if kapi_turu == "giris":
+        for q in nfc_arayuz_dinleyicileri:
+            q.put(nfc_uid)
+        return jsonify({"status": "BEKLE", "mesaj": "Yüz taraması bekleniyor"})
+        
+    elif kapi_turu == "cikis":
 
-            if kullanici['iceride_mi']==0:
-                db.log_kaydet(f"Dışarıda görünen kartla çıkış denemesi: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
-                continue
+        if kullanici['iceride_mi'] == 0:
+            db.log_kaydet(f"Dışarıda görünen kartla çıkış denemesi: {kullanici['ad_soyad']}", "YETKİSİZ_GİRİŞ_DENEMESİ")
+            return jsonify({"status": "RED"})
             
-            nfc_cikis.motor_ac()
-                        
-            baglanti=db.veritabani_baglantisi_al()
-            imlec=baglanti.cursor()
-            imlec.execute("UPDATE kullanicilar SET iceride_mi= 0 WHERE id= ?", (kullanici['id'],))
-            baglanti.commit()
-            baglanti.close()
+        baglanti = db.veritabani_baglantisi_al()
+        imlec = baglanti.cursor()
+        imlec.execute("UPDATE kullanicilar SET iceride_mi= 0 WHERE id= ?", (kullanici['id'],))
+        baglanti.commit()
+        baglanti.close()
+        
+        db.log_kaydet(f"{kullanici['ad_soyad']} kartı ile çıkış yapıldı", "BAŞARILI_ÇIKIŞ")
+        global SON_CANLI_BILDIRIM
+        SON_CANLI_BILDIRIM = {
+            "id": SON_CANLI_BILDIRIM["id"] + 1, 
+            "mesaj": f"🚪 {kullanici['ad_soyad']} Çıkış Yaptı!"
+        }
+        return jsonify({"status": "MOTOR_AC"})
 
-            
-            db.log_kaydet(f"{kullanici['ad_soyad']} kartı ile çıkış yapıldı", "BAŞARILI_ÇIKIŞ")
-            print(f"\n[SİSTEM] {kullanici['ad_soyad']} OTONOM ÇIKIŞ YAPTI.\n")
-
-        except Empty:
-            pass
-        except Exception as e:
-            print(f"[HATA] Çıkış Dinleyicisi: {e}")
-
-threading.Thread(target=otonom_cikis_dinle,daemon=True).start()
-            
-            
-
-
-
+@app.route('/api/canli_bildirim',methods=['GET'])
+def canli_bildirim_getir():
+    return jsonify(SON_CANLI_BILDIRIM)
 
 
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:5000")
-    app.run(host='127.0.0.1', port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 
 
