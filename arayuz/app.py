@@ -35,6 +35,35 @@ SON_CANLI_BILDIRIM= {"id": 0, "mesaj":"Sistem Başlatıldı"}
 load_dotenv()
 
 app = Flask(__name__)
+
+def udp_dinleyici_baslat():
+    UDP_IP="0.0.0.0"
+    UDP_PORT=5555
+
+    sock=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind((UDP_IP,UDP_PORT))
+    print(f"[SİSTEM] UDP Keşif Alanı {UDP_PORT} portunda NodeMCU'ları bekliyor...")
+
+    while True:
+        try:
+            data,addr=sock.recvfrom(1024)
+            mesaj=data.decode("utf-8").strip()
+
+            if mesaj=="NFC_SERVER_NERDESIN":
+                s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                try:
+                    s.connect(('10.255.255.255',1))
+                    benim_ip=s.getsockname()[0]
+                except Exception:
+                    benim_ip='127.0.0.1'
+                finally:
+                    s.close()
+
+                cevap=f"BEN_BURADAYIM:{benim_ip}"
+                sock.sendto(cevap.encode('utf-8'), addr)
+                print(f"[UDP] {addr[0]} adresindeki NodeMCU'ya güncel IP ({benim_ip}) fısıldandı")
+        except Exception as e:
+            print(f"[UDP HATA] {e}")
 app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
 
 
@@ -836,6 +865,7 @@ def canli_bildirim_getir():
 
 if __name__ == '__main__':
     webbrowser.open("http://127.0.0.1:5000")
+    threading.Thread(target=udp_dinleyici_baslat, daemon=True).start()
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
 
 
